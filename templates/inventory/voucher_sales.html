@@ -1,0 +1,155 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="bg-white border rounded p-6 max-w-4xl mx-auto">
+  <h1 class="text-2xl font-bold mb-4">Sales (with Items)</h1>
+  {% if form.non_field_errors or form.errors %}
+  <div class="mb-4 p-3 rounded border border-red-400 bg-red-50 text-red-800 text-sm">
+    {{ form.non_field_errors }}
+    {% for field in form %}{% if field.errors %}<div>{{ field.label }}: {{ field.errors }}</div>{% endif %}{% endfor %}
+  </div>
+  {% endif %}
+  <form method="post" action="" class="space-y-4" id="sales-form">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-semibold text-gray-800 mb-1">Party A/c (Customer)</label>
+        {{ form.party }}
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-800 mb-1">Sales Ledger</label>
+        {{ form.sales_ledger }}
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-800 mb-1">Godown</label>
+        {{ form.godown }}
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-800 mb-1">Posting date</label>
+        {{ form.posting_date }}
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Narration</label>
+      {{ form.narration }}
+    </div>
+
+    <div class="border rounded p-4 bg-slate-50">
+      <h3 class="font-semibold mb-3">Item table</h3>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b">
+            <th class="text-left py-2 px-2">Item</th>
+            <th class="text-right py-2 px-2 w-28">Qty</th>
+            <th class="text-right py-2 px-2 w-32">Rate</th>
+            <th class="text-right py-2 px-2 w-32">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in row_formset %}
+          <tr class="border-b border-slate-100" data-row-index="{{ forloop.counter0 }}">
+            <td class="py-1 px-2">{{ f.item }}</td>
+            <td class="py-1 px-2 text-right">{{ f.qty }}</td>
+            <td class="py-1 px-2 text-right">{{ f.rate }}</td>
+            <td class="py-1 px-2 text-right tabular-nums"><span id="amount-{{ row_formset.prefix }}-{{ forloop.counter0 }}" class="row-amount text-slate-700">—</span></td>
+          </tr>
+          {% if f.errors %}<tr><td colspan="4" class="text-red-600 text-xs">{{ f.errors }}</td></tr>{% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+      {{ row_formset.management_form }}
+      <div class="mt-2 text-sm text-slate-600">Total qty <span id="total-qty-display" class="font-semibold text-slate-800">{{ total_qty|default:"—" }}</span> &nbsp; Total amount <span id="total-amount-display" class="font-semibold text-slate-800">{{ total_amount|default:"—" }}</span></div>
+    </div>
+
+    <div class="flex gap-2 pt-4">
+      <button type="submit" class="px-6 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 font-semibold">Post</button>
+      <a href="{% url 'inventory:stock_summary' %}" class="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-semibold">Cancel</a>
+    </div>
+  </form>
+
+  <script>
+  (function() {
+    var itemRates = {{ item_rates_json|safe }};
+    var form = document.getElementById('sales-form');
+    var prefix = '{{ row_formset.prefix }}';
+    if (!form) return;
+
+    function setRateForItemSelect(selectEl) {
+      if (!selectEl.id || selectEl.id.indexOf('-item') === -1 || !selectEl.value) return;
+      var rateId = selectEl.id.replace(/-item$/, '-rate');
+      var rateInput = document.getElementById(rateId);
+      if (rateInput && typeof itemRates !== 'undefined') {
+        var r = itemRates[selectEl.value];
+        rateInput.value = r !== undefined ? r : '';
+      }
+    }
+
+    function parseNum(val) {
+      if (val === '' || val == null) return NaN;
+      var n = parseFloat(String(val).replace(/,/g, ''));
+      return isNaN(n) ? NaN : n;
+    }
+
+    function formatNum(n) {
+      if (isNaN(n) || n === null) return '—';
+      return Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function updateRowAmount(rowIndex) {
+      var qtyEl = document.getElementById('id_' + prefix + '-' + rowIndex + '-qty');
+      var rateEl = document.getElementById('id_' + prefix + '-' + rowIndex + '-rate');
+      var amountEl = document.getElementById('amount-' + prefix + '-' + rowIndex);
+      if (!amountEl) return;
+      var qty = parseNum(qtyEl ? qtyEl.value : null);
+      var rate = parseNum(rateEl ? rateEl.value : null);
+      if (!isNaN(qty) && !isNaN(rate) && qty >= 0 && rate >= 0) {
+        amountEl.textContent = formatNum(qty * rate);
+      } else {
+        amountEl.textContent = '—';
+      }
+    }
+
+    function updateTotals() {
+      var totalQty = 0;
+      var totalAmount = 0;
+      for (var i = 0; i < 20; i++) {
+        var qtyEl = document.getElementById('id_' + prefix + '-' + i + '-qty');
+        var rateEl = document.getElementById('id_' + prefix + '-' + i + '-rate');
+        if (!qtyEl) continue;
+        var qty = parseNum(qtyEl.value);
+        var rate = parseNum(rateEl ? rateEl.value : null);
+        if (!isNaN(qty) && qty > 0) totalQty += qty;
+        if (!isNaN(qty) && !isNaN(rate) && qty > 0 && rate >= 0) totalAmount += qty * rate;
+      }
+      var totalQtyEl = document.getElementById('total-qty-display');
+      var totalAmountEl = document.getElementById('total-amount-display');
+      if (totalQtyEl) totalQtyEl.textContent = totalQty > 0 ? totalQty : '—';
+      if (totalAmountEl) totalAmountEl.textContent = totalAmount > 0 ? formatNum(totalAmount) : '—';
+    }
+
+    function refreshAll() {
+      for (var i = 0; i < 20; i++) {
+        if (document.getElementById('amount-' + prefix + '-' + i)) updateRowAmount(i);
+      }
+      updateTotals();
+    }
+
+    form.addEventListener('change', function(ev) {
+      var el = ev.target;
+      if (el.id && el.id.indexOf('-item') !== -1 && el.tagName === 'SELECT') setRateForItemSelect(el);
+      var match = el.id && el.id.match(new RegExp('^id_' + prefix.replace(/-/g, '\\-') + '-(\\d+)-(qty|rate)$'));
+      if (match) { updateRowAmount(parseInt(match[1], 10)); updateTotals(); }
+    });
+    form.addEventListener('input', function(ev) {
+      var el = ev.target;
+      var match = el.id && el.id.match(new RegExp('^id_' + prefix.replace(/-/g, '\\-') + '-(\\d+)-(qty|rate)$'));
+      if (match) { updateRowAmount(parseInt(match[1], 10)); updateTotals(); }
+    });
+
+    if (typeof itemRates !== 'undefined') [].forEach.call(form.querySelectorAll('select[id$="-item"]'), setRateForItemSelect);
+    refreshAll();
+  })();
+  </script>
+
+  <p class="mt-4"><a href="{% url 'inventory:gateway' %}" class="text-slate-600 hover:underline">← Gateway</a></p>
+</div>
+{% endblock %}

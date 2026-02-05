@@ -1,0 +1,54 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="bg-white border rounded p-6 max-w-5xl mx-auto">
+  <h1 class="text-2xl font-bold mb-4">Stock Summary</h1>
+  <p class="text-sm text-slate-600 mb-4">Balances are derived from posted ledger entries only. No stored balance field.</p>
+
+  <form method="get" action="{% url 'inventory:stock_summary' %}" class="flex flex-wrap gap-4 items-end mb-6 p-4 bg-slate-50 rounded border">
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-1">Godown</label>
+      <select name="godown" class="px-3 py-2 border rounded text-sm">
+        <option value="">All</option>
+        {% for g in godowns %}
+        <option value="{{ g.pk }}" {% if selected_godown_id and selected_godown_id == g.pk|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-1">From date</label>
+      <input type="date" name="date_from" value="{{ date_from }}" class="px-3 py-2 border rounded text-sm">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-1">To date</label>
+      <input type="date" name="date_to" value="{{ date_to }}" class="px-3 py-2 border rounded text-sm">
+    </div>
+    <button type="submit" class="px-4 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 text-sm font-medium">Apply</button>
+  </form>
+
+  <div class="border rounded overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-100">
+        <tr>
+          <th class="text-left py-2 px-3">Item</th>
+          <th class="text-right py-2 px-3">Qty In</th>
+          <th class="text-right py-2 px-3">Qty Out</th>
+          <th class="text-right py-2 px-3">Closing Qty</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in summary_rows %}
+        <tr class="border-t hover:bg-slate-50">
+          <td class="py-2 px-3">{{ row.item_sku }}</td>
+          <td class="py-2 px-3 text-right">{{ row.qty_in }}</td>
+          <td class="py-2 px-3 text-right">{{ row.qty_out }}</td>
+          <td class="py-2 px-3 text-right font-medium">{{ row.balance }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="py-4 px-3 text-slate-500">No posted entries match the filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="mt-4"><a href="{% url 'inventory:gateway' %}" class="text-slate-600 hover:underline">← Gateway</a></p>
+</div>
+{% endblock %}

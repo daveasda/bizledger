@@ -1,0 +1,19 @@
+<h2>Invoice {{ inv.invoice_no }}</h2>
+<p>Date: {{ inv.date }}<br>Customer: {{ inv.customer_name }}</p>
+
+<table border="1" cellpadding="6" cellspacing="0">
+  <tr><th>Description</th><th>Qty</th><th>Unit</th><th>Total</th></tr>
+  {% for line in inv.lines.all %}
+    <tr>
+      <td>{{ line.description }}</td>
+      <td>{{ line.qty }}</td>
+      <td>{{ line.unit_price }}</td>
+      <td>{{ line.line_total }}</td>
+    </tr>
+  {% endfor %}
+</table>
+
+<button onclick="window.print()">Print</button>
+<style>
+@media print { button { display:none; } }
+</style>

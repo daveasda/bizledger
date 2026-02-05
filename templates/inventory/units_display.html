@@ -1,0 +1,33 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="grid md:grid-cols-3 gap-4">
+  <div class="md:col-span-2 bg-white border rounded p-4">
+    <div class="bg-slate-600 text-white px-3 py-2 mb-2 font-semibold">List of Units</div>
+    <div class="bg-white border rounded p-2 mb-2">
+      <div class="text-sm text-gray-600 mb-1">Symbol</div>
+      <div class="h-8 border-b"></div>
+    </div>
+    <div class="bg-white border rounded max-h-96 overflow-y-auto">
+      {% for unit in units %}
+      <a href="{% url 'inventory:unit_alter' unit.pk %}" class="block px-2 py-1 hover:bg-slate-100 {% if forloop.first %}bg-slate-200{% endif %}">
+        {{ unit.symbol }}{% if unit.formal_name %} ({{ unit.formal_name }}){% endif %}
+      </a>
+      {% empty %}
+      <div class="px-2 py-1 text-gray-600">No units found. Create one to get started.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="bg-gray-100 border rounded p-4">
+    <div class="font-semibold mb-3">Units of Measure</div>
+    <div class="space-y-1">
+      <a href="{% url 'inventory:unit_create' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Create</a>
+      <a href="{% url 'inventory:units_display' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Display</a>
+      <a href="{% url 'inventory:units_display' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Alter</a>
+    </div>
+    <div class="pt-2 mt-3 border-t">
+      <a href="{% url 'inventory:units_gateway' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded text-center">Quit</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">Dashboard</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+  <div class="bg-white rounded-xl shadow p-6">
+    <p class="text-sm text-slate-500">Current Mode</p>
+    <p class="text-xl font-semibold">{{ request.session.current_mode }}</p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow p-6">
+    <p class="text-sm text-slate-500">Inventory Status</p>
+    <p class="text-xl font-semibold">View Stock</p>
+  </div>
+
+  <a href="{% url 'reports:reports_list' %}" class="bg-white rounded-xl shadow p-6 block hover:shadow-md transition">
+    <p class="text-sm text-slate-500">Reports</p>
+    <p class="text-xl font-semibold">P&L / Cashflow</p>
+  </a>
+</div>
+
+<div class="bg-white rounded-xl shadow p-6">
+  <h2 class="font-semibold mb-4">Quick Actions</h2>
+  <div class="flex gap-4">
+    <a href="/org/select-business/" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Select Business</a>
+    <a href="/billing/invoices/" class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900">View Invoices</a>
+  </div>
+</div>
+{% endblock %}

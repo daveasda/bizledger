@@ -1,0 +1,66 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+<div class="bg-white border rounded p-4">
+  <div class="text-lg font-semibold mb-4">{{ title }}</div>
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="grid md:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">Voucher Type</label>
+        {{ form.voucher_type }} {{ form.voucher_type.errors }}
+      </div>
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">Date</label>
+        {{ form.posting_date }} {{ form.posting_date.errors }}
+      </div>
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">Narration</label>
+        {{ form.narration }} {{ form.narration.errors }}
+      </div>
+    </div>
+
+    <div>
+      <div class="font-semibold mb-2">Particulars (Lines)</div>
+      {{ formset.management_form }}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border rounded">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="text-left p-2">Account (Ledger)</th>
+              <th class="text-left p-2">Debit</th>
+              <th class="text-left p-2">Credit</th>
+              <th class="text-left p-2">Memo</th>
+              <th class="text-left p-2">Delete</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in formset %}
+            <tr class="border-t align-top">
+              <td class="p-2">
+                {{ f.account }} {{ f.account.errors }}
+                {{ f.non_field_errors }}
+              </td>
+              <td class="p-2">{{ f.debit }} {{ f.debit.errors }}</td>
+              <td class="p-2">{{ f.credit }} {{ f.credit.errors }}</td>
+              <td class="p-2">{{ f.memo }} {{ f.memo.errors }}</td>
+              <td class="p-2">{{ f.DELETE }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="text-xs text-gray-500 mt-2">
+        Tip: In a line, enter either Debit or Credit, not both.
+      </div>
+    </div>
+
+    <div class="flex gap-2">
+      <button class="px-4 py-2 rounded bg-black text-white hover:opacity-90" type="submit">Save Draft</button>
+      <a class="px-4 py-2 rounded border bg-white hover:bg-gray-50" href="{% url 'ledger:voucher_list' %}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

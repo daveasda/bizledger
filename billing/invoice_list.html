@@ -1,0 +1,11 @@
+<h2>Invoices</h2>
+<ul>
+  {% for inv in invoices %}
+    <li>
+      <a href="/billing/invoices/{{ inv.id }}/">{{ inv.invoice_no }}</a>
+      — {{ inv.date }} — {{ inv.customer_name }}
+    </li>
+  {% empty %}
+    <li>No invoices yet. Create one in /admin/</li>
+  {% endfor %}
+</ul>

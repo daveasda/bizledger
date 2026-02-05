@@ -1,0 +1,25 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+<div class="flex items-center justify-between mb-4">
+  <div class="text-lg font-semibold">Chart of Accounts</div>
+  <a href="{% url 'ledger:accounts_gateway' %}" class="px-3 py-2 rounded bg-black text-white hover:opacity-90">Accounts Gateway</a>
+</div>
+
+<div class="grid md:grid-cols-2 gap-4">
+  <div class="bg-white border rounded p-4">
+    <div class="text-sm text-gray-500 mb-3">Display</div>
+    <div class="space-y-1">
+      {% include "ledger/partials/account_tree_node.html" with nodes=tree level=0 %}
+    </div>
+  </div>
+
+  <div class="bg-white border rounded p-4">
+    <div class="text-sm text-gray-500 mb-2">How to use (Tally style)</div>
+    <ul class="text-sm list-disc ml-5 space-y-1">
+      <li><b>Group</b> = folder (can contain children)</li>
+      <li><b>Ledger</b> = posting account (vouchers hit these)</li>
+      <li>Use <b>Create</b> to add, <b>Alter</b> to edit</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

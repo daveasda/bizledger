@@ -1,0 +1,50 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="bg-white border rounded p-6 max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold mb-4">Stock Journal</h1>
+  <p class="text-sm text-slate-600 mb-4">Transfer stock from one godown to another. Creates two ledger entries (out + in) in one transaction.</p>
+  {% if form.errors %}
+  <div class="mb-4 p-3 rounded border border-red-400 bg-red-50 text-red-800 text-sm">
+    <strong>Please fix the errors below.</strong>
+    {{ form.non_field_errors }}
+    {% for field in form %}{% if field.errors %}<div>{{ field.label }}: {{ field.errors }}</div>{% endif %}{% endfor %}
+  </div>
+  {% endif %}
+  <form method="post" action="" class="space-y-4">
+    {% csrf_token %}
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Item</label>
+      {{ form.item }}
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">From Godown</label>
+      {{ form.from_godown }}
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">To Godown</label>
+      {{ form.to_godown }}
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Qty</label>
+      {{ form.qty }}
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Rate (optional)</label>
+      {{ form.rate }}
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Posting date</label>
+      {{ form.posting_date }}
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Narration (optional)</label>
+      {{ form.narration }}
+    </div>
+    <div class="flex gap-2 pt-4">
+      <button type="submit" class="px-6 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 font-semibold">Post</button>
+      <a href="{% url 'inventory:stock_summary' %}" class="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-semibold">Cancel</a>
+    </div>
+  </form>
+  <p class="mt-4"><a href="{% url 'inventory:gateway' %}" class="text-slate-600 hover:underline">← Gateway</a></p>
+</div>
+{% endblock %}

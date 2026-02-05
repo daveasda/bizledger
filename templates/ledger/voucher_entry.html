@@ -1,0 +1,267 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+<div class="bg-white border rounded p-4">
+  <div class="flex items-center justify-between">
+    <div>
+      <div class="text-sm text-gray-500">Accounting Voucher Creation</div>
+      <div class="text-xl font-semibold">{{ vtype|title }}</div>
+    </div>
+  </div>
+
+  <form method="post" class="mt-4 space-y-6" id="voucherForm">
+    {% csrf_token %}
+    {{ header_form.non_field_errors }}
+
+    {% if vtype|upper == "CONTRA" %}
+    <div class="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded mb-4">
+      <span class="text-sm font-medium text-slate-700">Contra direction:</span>
+      <label class="inline-flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="contra_direction" value="deposit" checked class="rounded-full">
+        <span class="text-sm">Deposit to selected Account</span>
+      </label>
+      <label class="inline-flex items-center gap-2 cursor-pointer">
+        <input type="radio" name="contra_direction" value="withdraw" class="rounded-full">
+        <span class="text-sm">Withdraw from selected Account</span>
+      </label>
+      <span class="text-xs text-slate-500">(Deposit = cash/bank in; Withdraw = cash/bank out)</span>
+    </div>
+    {% endif %}
+
+    <!-- TOP: Account + Auto amount -->
+    <div class="grid md:grid-cols-3 gap-4 items-end">
+      <div class="md:col-span-1">
+        <label class="block text-sm text-gray-600 mb-1">Account</label>
+        {{ header_form.account }}
+
+        <div class="text-xs text-gray-600 mt-1">
+          Cur Bal: <span id="topCurBal">—</span>
+        </div>
+
+        <div class="text-xs text-gray-500 mt-1">
+          This is like Tally's "Account: Cash/Bank".
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">Date</label>
+        {{ header_form.posting_date }}
+        {{ header_form.posting_date.errors }}
+      </div>
+
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">Amount (Auto)</label>
+        <input id="autoTotal" class="w-full border rounded px-3 py-2 bg-gray-50" value="0.00" readonly>
+        <div class="text-xs text-gray-500 mt-1">
+          Auto = sum of Particulars (like Tally).
+        </div>
+      </div>
+    </div>
+
+    <!-- Particulars -->
+    <div>
+      <div class="font-semibold mb-2">Particulars</div>
+      {{ formset.management_form }}
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border rounded">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="text-left p-2">Particulars (Ledger)</th>
+              <th class="text-left p-2 w-44">Amount</th>
+              <th class="text-left p-2">Memo</th>
+              <th class="text-left p-2 w-20">Del</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in formset %}
+            <tr class="border-t align-top">
+              <td class="p-2">
+                {{ f.account }}
+                {{ f.account.errors }}
+                {{ f.non_field_errors }}
+
+                <div class="text-xs text-gray-600 mt-1">
+                  Cur Bal: <span class="curbal" data-prefix="{{ f.prefix }}">—</span>
+                </div>
+              </td>
+              <td class="p-2">
+                {{ f.amount }}
+                {{ f.amount.errors }}
+              </td>
+              <td class="p-2">
+                {{ f.memo }}
+                {{ f.memo.errors }}
+              </td>
+              <td class="p-2">{{ f.DELETE }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="text-xs text-gray-500 mt-2">
+        You only type Particulars + Amount. The top line is auto.
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-sm text-gray-600 mb-1">Narration</label>
+      {{ header_form.narration }}
+      {{ header_form.narration.errors }}
+    </div>
+
+    <div class="flex gap-2">
+      <button class="px-4 py-2 rounded bg-black text-white hover:opacity-90" type="submit">
+        Accept
+      </button>
+      <a class="px-4 py-2 rounded border bg-white hover:bg-gray-50" href="{% url 'ledger:voucher_list' %}">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  const form = document.getElementById("voucherForm");
+  const totalEl = document.getElementById("autoTotal");
+  const topSelect = form.querySelector('select[name="account"]');
+  const vtype = "{{ vtype|upper }}";
+  const apiAccountBalanceBase = "{% url 'ledger:api_account_balance' 0 %}";
+
+  const baseBalances = {};
+  const pendingEffect = {};
+
+  function getIsReceiptStyle() {
+    if (vtype === "RECEIPT" || vtype === "SALES") return true;
+    if (vtype === "CONTRA") {
+      const withdraw = form.querySelector('input[name="contra_direction"]:checked');
+      return !withdraw || withdraw.value !== "withdraw";
+    }
+    return false;
+  }
+
+  function parseNum(v) {
+    const x = parseFloat(String(v || "").replace(/,/g, ""));
+    return isNaN(x) ? 0 : x;
+  }
+
+  function fmtDrCrFromNet(net) {
+    if (net >= 0) return { amt: net.toFixed(2), drcr: "Dr" };
+    return { amt: Math.abs(net).toFixed(2), drcr: "Cr" };
+  }
+
+  async function fetchBase(accountId) {
+    if (!accountId) return;
+    if (baseBalances[accountId] !== undefined) return;
+
+    const url = apiAccountBalanceBase.replace(/0\/?$/, accountId + "/");
+    const res = await fetch(url);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    baseBalances[accountId] = parseNum(data.net);
+  }
+
+  function computeTotal() {
+    const inputs = form.querySelectorAll('input[name$="-amount"]');
+    let total = 0;
+    inputs.forEach(inp => total += parseNum(inp.value));
+    totalEl.value = total.toFixed(2);
+    return total;
+  }
+
+  function clearPending() {
+    for (const k in pendingEffect) delete pendingEffect[k];
+  }
+
+  function addPending(accountId, delta) {
+    if (!accountId) return;
+    pendingEffect[accountId] = (pendingEffect[accountId] || 0) + delta;
+  }
+
+  function recomputePendingFromDraft() {
+    clearPending();
+
+    const total = computeTotal();
+    const topId = parseInt(topSelect.value || "0", 10) || null;
+
+    const isReceiptStyle = getIsReceiptStyle();
+    if (topId) {
+      addPending(topId, isReceiptStyle ? +total : -total);
+    }
+
+    const rows = form.querySelectorAll('tbody tr');
+    rows.forEach(tr => {
+      const accSel = tr.querySelector('select[name$="-account"]');
+      const amtInp = tr.querySelector('input[name$="-amount"]');
+      const delInp = tr.querySelector('input[name$="-DELETE"]');
+
+      if (!accSel || !amtInp) return;
+      if (delInp && delInp.checked) return;
+
+      const accId = parseInt(accSel.value || "0", 10) || null;
+      const amt = parseNum(amtInp.value);
+      if (!accId || amt <= 0) return;
+
+      addPending(accId, isReceiptStyle ? -amt : +amt);
+    });
+  }
+
+  function renderCurBalFor(accountId, el) {
+    if (!el) return;
+    if (!accountId) { el.textContent = "—"; return; }
+    const base = baseBalances[accountId] || 0;
+    const pending = pendingEffect[accountId] || 0;
+    const net = base + pending;
+    const out = fmtDrCrFromNet(net);
+    el.textContent = out.amt + " " + out.drcr;
+  }
+
+  async function refreshAllBalances() {
+    const ids = new Set();
+    const topId = parseInt(topSelect.value || "0", 10) || null;
+    if (topId) ids.add(topId);
+
+    form.querySelectorAll('select[name$="-account"]').forEach(sel => {
+      const id = parseInt(sel.value || "0", 10) || null;
+      if (id) ids.add(id);
+    });
+
+    await Promise.all([...ids].map(fetchBase));
+
+    recomputePendingFromDraft();
+
+    renderCurBalFor(topId, document.getElementById("topCurBal"));
+
+    document.querySelectorAll(".curbal").forEach(span => {
+      const prefix = span.getAttribute("data-prefix");
+      const sel = form.querySelector('select[name="' + prefix + '-account"]');
+      const id = sel ? (parseInt(sel.value || "0", 10) || null) : null;
+      renderCurBalFor(id, span);
+    });
+  }
+
+  form.addEventListener("input", (e) => {
+    if (
+      e.target === topSelect ||
+      (e.target.name && (e.target.name.endsWith("-amount") || e.target.name.endsWith("-DELETE")))
+    ) {
+      refreshAllBalances();
+    }
+  });
+
+  form.addEventListener("change", (e) => {
+    if (
+      e.target === topSelect ||
+      (e.target.name && (e.target.name.endsWith("-account") || e.target.name.endsWith("-DELETE") || e.target.name === "contra_direction"))
+    ) {
+      refreshAllBalances();
+    }
+  });
+
+  refreshAllBalances();
+})();
+</script>
+{% endblock %}
+

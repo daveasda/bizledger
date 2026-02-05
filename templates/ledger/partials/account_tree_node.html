@@ -1,0 +1,16 @@
+{% for n in nodes %}
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-2" style="padding-left: {{ level|add:0 }}rem;">
+      <span class="text-xs px-2 py-1 rounded border bg-gray-50">
+        {% if n.obj.is_group %}Group{% else %}Ledger{% endif %}
+      </span>
+      <span class="font-medium">{{ n.obj.name }}</span>
+      <span class="text-xs text-gray-500">{{ n.obj.root_type }}</span>
+    </div>
+    <a class="text-blue-600 hover:underline text-sm" href="{% url 'ledger:account_edit' n.obj.id %}">Alter</a>
+  </div>
+
+  {% if n.children %}
+    {% include "ledger/partials/account_tree_node.html" with nodes=n.children level=level|add:1 %}
+  {% endif %}
+{% endfor %}

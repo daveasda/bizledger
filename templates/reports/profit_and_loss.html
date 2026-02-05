@@ -1,0 +1,153 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+
+<div class="bg-white border rounded p-4">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <div class="text-sm text-gray-500">Reports</div>
+      <div class="text-xl font-semibold">Profit & Loss A/c</div>
+      <div class="text-xs text-gray-500 mt-1">{{ business }} — inventory-integrated (posted vouchers + stock valuation){% if godown %} — Stock: {{ godown.name }}{% else %} — Stock: All godowns{% endif %}{% if closing_stock_override is not None %} <span class="text-amber-700">(Closing stock override: {{ closing_stock_override|floatformat:0 }})</span>{% endif %}</div>
+      {% if start_date or end_date %}
+      <div class="text-xs text-gray-600 mt-1">Period: {{ start_date|default:"start" }} to {{ end_date|default:"today" }}</div>
+      {% else %}
+      <div class="text-xs text-gray-600 mt-1">Period: all posted data</div>
+      {% endif %}
+      {% if godowns and closing_stock_per_godown %}
+      <div class="text-xs text-gray-600 mt-2">
+        Closing stock by godown:
+        <a href="?godown=all{% if start_date %}&start_date={{ start_date|date:'Y-m-d' }}{% endif %}{% if end_date %}&end_date={{ end_date|date:'Y-m-d' }}{% endif %}" class="{% if not godown %}font-semibold{% endif %}">All</a>
+        {% for g, val in closing_stock_per_godown %}
+        | <a href="?godown={{ g.id }}{% if start_date %}&start_date={{ start_date|date:'Y-m-d' }}{% endif %}{% if end_date %}&end_date={{ end_date|date:'Y-m-d' }}{% endif %}" class="{% if godown and godown.id == g.id %}font-semibold{% endif %}">{{ g.name }} ({{ val|floatformat:0 }})</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if not closing_stock_override and not opening_stock_override %}
+      <div class="text-xs text-slate-500 mt-1">To use book value: <a href="?closing_stock=803000{% if godown %}&godown={{ godown.id }}{% endif %}{% if start_date %}&start_date={{ start_date|date:'Y-m-d' }}{% endif %}{% if end_date %}&end_date={{ end_date|date:'Y-m-d' }}{% endif %}" class="text-blue-600 hover:underline">Use closing stock 803,000</a></div>
+      {% endif %}
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      {% if debug %}
+      <a href="?{% if godown %}godown={{ godown.id }}{% else %}godown=all{% endif %}{% if start_date %}&start_date={{ start_date|date:'Y-m-d' }}{% endif %}{% if end_date %}&end_date={{ end_date|date:'Y-m-d' }}{% endif %}" class="px-3 py-2 rounded border bg-amber-50 hover:bg-amber-100 text-sm">Hide debug</a>
+      {% else %}
+      <a href="?debug=1{% if godown %}&godown={{ godown.id }}{% endif %}{% if start_date %}&start_date={{ start_date|date:'Y-m-d' }}{% endif %}{% if end_date %}&end_date={{ end_date|date:'Y-m-d' }}{% endif %}" class="px-3 py-2 rounded border bg-amber-50 hover:bg-amber-100 text-sm">Debug</a>
+      {% endif %}
+      <a href="{% url 'reports:reports_list' %}" class="px-3 py-2 rounded border bg-white hover:bg-gray-50 text-sm">← Reports</a>
+    </div>
+  </div>
+
+  {# Tally-style: Left = Opening Stock, Purchases, Indirect, Nett Profit; Right = Sales, Closing Stock. Totals match. #}
+  <div class="grid md:grid-cols-2 gap-6">
+    <!-- LEFT: Debit side (Expenses) -->
+    <div class="border rounded p-4 bg-slate-50/50">
+      <div class="font-semibold mb-2 text-slate-800">Particulars (Debit)</div>
+      <table class="w-full text-sm">
+        <tr class="border-b border-slate-200">
+          <td class="py-2">Opening Stock</td>
+          <td class="py-2 text-right font-mono">{{ opening_stock_value|floatformat:2 }}</td>
+        </tr>
+        {% for name, amt in purchases %}
+        <tr class="border-b border-slate-200">
+          <td class="py-2">{{ name }}</td>
+          <td class="py-2 text-right font-mono">{{ amt|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        {% endfor %}
+        {% if purchases %}
+        <tr class="border-b border-slate-300 font-medium">
+          <td class="py-1 text-slate-600">Purchase Accounts</td>
+          <td class="py-1 text-right font-mono">{{ purchase_total|floatformat:2 }}</td>
+        </tr>
+        {% endif %}
+        {% for name, amt in indirect_expense %}
+        <tr class="border-b border-slate-200">
+          <td class="py-2">{{ name }}</td>
+          <td class="py-2 text-right font-mono">{{ amt|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="border-t-2 border-slate-300 font-semibold mt-2">
+          <td class="pt-3">Nett Profit</td>
+          <td class="pt-3 text-right font-mono">{{ net_profit|floatformat:2 }}</td>
+        </tr>
+        <tr class="border-t border-slate-200">
+          <td class="py-2 font-medium">Total (Debit)</td>
+          <td class="py-2 text-right font-mono font-semibold">{{ total_debit|floatformat:2 }}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- RIGHT: Credit side (Income) -->
+    <div class="border rounded p-4 bg-slate-50/50">
+      <div class="font-semibold mb-2 text-slate-800">Particulars (Credit)</div>
+      <table class="w-full text-sm">
+        {% for name, amt in sales %}
+        <tr class="border-b border-slate-200">
+          <td class="py-2">{{ name }}</td>
+          <td class="py-2 text-right font-mono">{{ amt|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td class="py-2 text-slate-500">No sales</td><td class="py-2 text-right"></td></tr>
+        {% endfor %}
+        {% if sales %}
+        <tr class="border-b border-slate-300 font-medium">
+          <td class="py-1 text-slate-600">Sales Accounts</td>
+          <td class="py-1 text-right font-mono">{{ sales_total|floatformat:2 }}</td>
+        </tr>
+        {% endif %}
+        <tr class="border-b border-slate-200">
+          <td class="py-2">Closing Stock</td>
+          <td class="py-2 text-right font-mono">{{ closing_stock_value|floatformat:2 }}</td>
+        </tr>
+        <tr class="border-t-2 border-slate-300 font-semibold mt-2">
+          <td class="pt-3">Total (Credit)</td>
+          <td class="pt-3 text-right font-mono">{{ total_credit|floatformat:2 }}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  {# Net Profit = Gross Profit − Indirect Expenses + Other Income #}
+  <div class="mt-6 pt-4 border-t-2 flex flex-wrap items-center justify-between gap-4">
+    {% if other_income %}
+    <div class="text-sm text-slate-600">
+      Other Income: {% for name, amt in other_income %}{{ name }} {{ amt|floatformat:2 }}{% if not forloop.last %}; {% endif %}{% endfor %} (total {{ other_income_total|floatformat:2 }})
+    </div>
+    {% endif %}
+    <div class="text-lg font-semibold {% if net_profit >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+      Net Profit (Gross Profit − Indirect Expenses + Other Income): {{ net_profit|floatformat:2 }}
+    </div>
+  </div>
+
+  {% if debug and debug_rows %}
+  <div class="mt-8 pt-6 border-t-2">
+    <div class="font-semibold text-amber-800 mb-2">Debug — ledger lines from posted vouchers</div>
+    <p class="text-xs text-gray-500 mb-2">Shows each account, root_type (from hierarchy), and classification (Sales / Purchase / Other Income / Indirect Expense).</p>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs border rounded">
+        <thead class="bg-amber-50">
+          <tr>
+            <th class="text-left p-2">Account</th>
+            <th class="text-right p-2">Dr</th>
+            <th class="text-right p-2">Cr</th>
+            <th class="text-left p-2">root_type</th>
+            <th class="text-left p-2">Classification</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in debug_rows %}
+          <tr class="border-t">
+            <td class="p-2 font-mono">{{ row.name }} <span class="text-gray-400">(id {{ row.account_id }})</span></td>
+            <td class="p-2 text-right font-mono">{{ row.dr }}</td>
+            <td class="p-2 text-right font-mono">{{ row.cr }}</td>
+            <td class="p-2 font-mono">{{ row.root_type }}</td>
+            <td class="p-2">{{ row.classification }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="text-xs text-gray-500 mt-2"><a href="?{% if start_date %}start_date={{ start_date|date:'Y-m-d' }}{% endif %}{% if end_date %}&end_date={{ end_date|date:'Y-m-d' }}{% endif %}">Hide debug</a></p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

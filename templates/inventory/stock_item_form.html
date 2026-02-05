@@ -1,0 +1,60 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="bg-white border rounded p-6 max-w-3xl mx-auto">
+  <div class="bg-slate-700 text-white px-4 py-2 mb-4 font-semibold text-center rounded">{{ title }}</div>
+
+  <form method="post" action="" class="space-y-4 bg-amber-50 p-6 rounded border border-amber-200">
+    {% csrf_token %}
+    {% if form.errors %}
+    <div class="p-3 rounded border border-red-400 bg-red-50 text-red-800 text-sm">
+      <strong>Please fix the errors below:</strong>
+      {{ form.non_field_errors }}
+      {% for field in form %}{% if field.errors %}<div>{{ field.label }}: {{ field.errors }}</div>{% endif %}{% endfor %}
+    </div>
+    {% endif %}
+    {{ form.non_field_errors }}
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Name (alias)</label>
+      <div class="bg-white border rounded flex gap-2">
+        {{ form.sku }}
+        {{ form.alias }}
+      </div>
+      <p class="text-xs text-gray-500 mt-1">Name and optional alias.</p>
+      {{ form.sku.errors }}
+      {{ form.alias.errors }}
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Under</label>
+      <div class="bg-white border rounded">
+        {{ form.stock_group }}
+      </div>
+      <p class="text-xs text-gray-500 mt-1">Select &quot;Primary&quot; for a top-level group.</p>
+      {{ form.stock_group.errors }}
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Units</label>
+      <div class="bg-white border rounded">
+        {{ form.unit }}
+      </div>
+      <p class="text-xs text-gray-500 mt-1">Select a unit or &quot;Not Applicable&quot; if quantities are not measured.</p>
+      {{ form.unit.errors }}
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Reorder Level</label>
+      <div class="bg-white border rounded">
+        {{ form.reorder_level }}
+      </div>
+      {{ form.reorder_level.errors }}
+    </div>
+
+    <div class="flex gap-2 pt-4">
+      <button class="px-6 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 font-semibold" type="submit">Accept</button>
+      <a href="{% url 'inventory:stock_items_display' %}" class="px-6 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 font-semibold">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,187 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+<div class="bg-white border rounded p-6 max-w-3xl mx-auto">
+  <div class="bg-green-600 text-white px-4 py-2 mb-4 font-semibold text-center rounded">{{ title }}</div>
+
+  <form method="post" action="" class="space-y-4 bg-yellow-50 p-6 rounded border">
+    {% csrf_token %}
+    {% if hide_nature_of_group %}
+    <input type="hidden" name="behaves_like_subledger" value="1">
+    {% endif %}
+    {% if form.errors %}
+    <div class="p-3 rounded border border-red-400 bg-red-50 text-red-800 text-sm">
+      <strong>Please fix the errors below:</strong>
+      {{ form.non_field_errors }}
+      {% for field in form %}{% if field.errors %}<div>{{ field.label }}: {{ field.errors }}</div>{% endif %}{% endfor %}
+    </div>
+    {% endif %}
+    {{ form.non_field_errors }}
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Name (alias)</label>
+      <div class="bg-white border rounded">
+        {{ form.name }}
+      </div>
+      {{ form.name.errors }}
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Under</label>
+      <div class="bg-white border rounded">
+        {{ form.parent }}
+      </div>
+      {{ form.parent.errors }}
+      <p class="text-xs text-gray-500 mt-1">Choose the parent group (e.g. Capital Account). Roots like Assets/Liabilities are not listed here.</p>
+    </div>
+
+    {% if not hide_nature_of_group %}
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Nature of Group</label>
+      <div class="bg-white border rounded">
+        {{ form.root_type }}
+      </div>
+      {{ form.root_type.errors }}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-600 italic">Nature of group is inherited from the parent you select under "Under". You do not enter it for ledgers.</p>
+    {% endif %}
+
+    {% if not hide_nature_of_group %}
+    <div class="flex items-center gap-2">
+      {{ form.behaves_like_subledger }}
+      <label for="{{ form.behaves_like_subledger.id_for_label }}" class="text-sm font-semibold text-gray-800">
+        Group behaves like a Sub-Ledger
+      </label>
+    </div>
+    {{ form.behaves_like_subledger.errors }}
+    {% endif %}
+
+    <div class="flex items-center gap-2">
+      {{ form.inventory_values_affected }}
+      <label for="{{ form.inventory_values_affected.id_for_label }}" class="text-sm font-semibold text-gray-800">
+        Inventory values are affected
+      </label>
+      <span class="text-blue-600 font-bold cursor-help" title="Help">?</span>
+    </div>
+    {{ form.inventory_values_affected.errors }}
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">
+        Opening Balance
+        {% if form.opening_balance_date.value %}
+          (on {{ form.opening_balance_date.value|date:"d-M-Y" }})
+        {% else %}
+          (on <span id="opening-balance-date-display">-</span>)
+        {% endif %}
+      </label>
+      <div class="flex gap-2">
+        <div class="flex-1 bg-white border rounded">
+          {{ form.opening_balance }}
+        </div>
+        <div class="bg-white border rounded">
+          {{ form.opening_balance_date }}
+        </div>
+      </div>
+      {{ form.opening_balance.errors }}
+      {{ form.opening_balance_date.errors }}
+    </div>
+
+    <!-- Mailing & Related Details Section -->
+    <div class="border-t-2 border-gray-400 pt-4 mt-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="border-t border-gray-400 flex-1"></div>
+        <div class="px-3">
+          <h3 class="text-sm font-semibold text-gray-800">Mailing & Related Details</h3>
+        </div>
+        <div class="border-t border-gray-400 flex-1"></div>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-semibold text-gray-800 mb-1">Name</label>
+          <div class="bg-white border rounded">
+            {{ form.mailing_name }}
+          </div>
+          {{ form.mailing_name.errors }}
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-gray-800 mb-1">Address</label>
+          <div class="bg-white border rounded">
+            {{ form.mailing_address }}
+          </div>
+          {{ form.mailing_address.errors }}
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-800 mb-1">State</label>
+            <div class="bg-white border rounded">
+              {{ form.mailing_state }}
+            </div>
+            {{ form.mailing_state.errors }}
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-800 mb-1">PIN Code</label>
+            <div class="bg-white border rounded">
+              {{ form.mailing_pin_code }}
+            </div>
+            {{ form.mailing_pin_code.errors }}
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-800 mb-1">Income Tax No.</label>
+            <div class="bg-white border rounded">
+              {{ form.income_tax_no }}
+            </div>
+            {{ form.income_tax_no.errors }}
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-800 mb-1">Sales Tax No.</label>
+            <div class="bg-white border rounded">
+              {{ form.sales_tax_no }}
+            </div>
+            {{ form.sales_tax_no.errors }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-2 pt-4">
+      <button class="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-semibold" type="submit">Accept</button>
+      <a href="{% url 'ledger:ledgers_display' %}" class="px-6 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 font-semibold">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Update opening balance date display when date changes
+  document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.querySelector('#id_opening_balance_date');
+    const dateDisplay = document.getElementById('opening-balance-date-display');
+    
+    if (dateInput && dateDisplay) {
+      function updateDateDisplay() {
+        if (dateInput.value) {
+          const date = new Date(dateInput.value);
+          const day = date.getDate();
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const month = monthNames[date.getMonth()];
+          const year = date.getFullYear();
+          const suffix = ['th', 'st', 'nd', 'rd'][((day % 100) - 20) % 10] || ['th', 'st', 'nd', 'rd'][day % 10] || 'th';
+          dateDisplay.textContent = `${day}${suffix} ${month}, ${year}`;
+        } else {
+          dateDisplay.textContent = '-';
+        }
+      }
+      
+      dateInput.addEventListener('change', updateDateDisplay);
+      updateDateDisplay(); // Initial update
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <div class="text-xs text-gray-500">Active Business</div>
+        <div class="text-xl font-semibold">{{ business }}</div>
+      </div>
+      <div class="flex gap-2">
+        <a href="{% url 'ledger:gateway' %}" class="px-3 py-2 rounded bg-white border hover:bg-gray-50">Gateway</a>
+        <a href="{% url 'ledger:accounts_gateway' %}" class="px-3 py-2 rounded bg-white border hover:bg-gray-50">Accounts</a>
+        <a href="{% url 'ledger:voucher_list' %}" class="px-3 py-2 rounded bg-white border hover:bg-gray-50">Vouchers</a>
+      </div>
+    </div>
+
+    {% if messages %}
+      <div class="space-y-2 mb-6">
+        {% for message in messages %}
+          <div class="p-3 rounded border bg-white text-sm">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% block ledger_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>BizLedger</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Tailwind CDN (demo-safe) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    body { background-color: #f8fafc; }
+  </style>
+</head>
+
+<body class="text-slate-800">
+
+<!-- Top bar -->
+<header class="bg-white shadow-sm">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+    <div class="text-xl font-semibold">BizLedger</div>
+    <nav class="space-x-6 text-sm font-medium">
+      <a href="/" class="hover:text-blue-600">Dashboard</a>
+      <a href="{% url 'inventory:gateway' %}" class="hover:text-blue-600">Inventory</a>
+      <a href="/billing/invoices/" class="hover:text-blue-600">Invoices</a>
+      <a href="{% url 'reports:reports_list' %}" class="hover:text-blue-600">Reports</a>
+      <a href="/admin/" class="hover:text-blue-600">Admin</a>
+    </nav>
+  </div>
+</header>
+
+<!-- Page -->
+<main class="max-w-7xl mx-auto px-6 py-8">
+  {% block content %}{% endblock %}
+</main>
+
+</body>
+</html>

@@ -1,0 +1,48 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+<div class="flex items-center justify-between mb-4">
+  <div class="text-lg font-semibold">Accounting Vouchers</div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'ledger:voucher_entry' 'RECEIPT' %}" class="px-3 py-2 rounded bg-black text-white hover:opacity-90">Receipt</a>
+    <a href="{% url 'ledger:voucher_entry' 'PAYMENT' %}" class="px-3 py-2 rounded bg-black text-white hover:opacity-90">Payment</a>
+    <a href="{% url 'ledger:voucher_entry' 'CONTRA' %}" class="px-3 py-2 rounded bg-black text-white hover:opacity-90">Contra</a>
+    <a href="{% url 'ledger:voucher_entry' 'SALES' %}" class="px-3 py-2 rounded bg-black text-white hover:opacity-90">Sales</a>
+    <a href="{% url 'ledger:voucher_create' %}" class="px-3 py-2 rounded border bg-white hover:bg-gray-50">Advanced (Dr/Cr)</a>
+  </div>
+</div>
+
+<div class="bg-white border rounded overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50">
+      <tr>
+        <th class="text-left p-3">No</th>
+        <th class="text-left p-3">Type</th>
+        <th class="text-left p-3">Date</th>
+        <th class="text-left p-3">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vouchers %}
+      <tr class="border-t hover:bg-gray-50">
+        <td class="p-3">
+          <a class="text-blue-600 hover:underline" href="{% url 'ledger:voucher_detail' v.id %}">
+            {{ v.number }}
+          </a>
+        </td>
+        <td class="p-3">{{ v.voucher_type }}</td>
+        <td class="p-3">{{ v.posting_date }}</td>
+        <td class="p-3">
+          {% if v.is_posted %}
+            <span class="px-2 py-1 rounded bg-green-100 text-green-800">Posted</span>
+          {% else %}
+            <span class="px-2 py-1 rounded bg-yellow-100 text-yellow-800">Draft</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td class="p-3 text-gray-500" colspan="4">No vouchers yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

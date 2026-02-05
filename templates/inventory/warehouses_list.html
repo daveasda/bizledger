@@ -1,0 +1,30 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="bg-white border rounded p-6 max-w-4xl mx-auto">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">Warehouses</h1>
+    <a href="{% url 'inventory:warehouse_create' %}" class="px-4 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 font-medium">New Warehouse</a>
+  </div>
+  <div class="border rounded overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-100">
+        <tr>
+          <th class="text-left py-2 px-3">Name</th>
+          <th class="w-20"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for wh in warehouses %}
+        <tr class="border-t hover:bg-slate-50">
+          <td class="py-2 px-3">{{ wh.name }}</td>
+          <td class="py-2 px-3"><a href="{% url 'inventory:warehouse_edit' wh.pk %}" class="text-blue-600 hover:underline">Edit</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="2" class="py-4 px-3 text-slate-500">No warehouses. <a href="{% url 'inventory:warehouse_create' %}" class="text-blue-600">Create one</a>.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="mt-4"><a href="{% url 'inventory:gateway' %}" class="text-slate-600 hover:underline">← Gateway</a></p>
+</div>
+{% endblock %}

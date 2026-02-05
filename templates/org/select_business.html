@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Select Business</title>
+  </head>
+  <body>
+    <h2>Select Business</h2>
+
+    <form method="post">
+      {% csrf_token %}
+      <select name="business_id">
+        {% for m in memberships %}
+          <option value="{{ m.business.id }}">{{ m.business.name }} ({{ m.get_role_display }})</option>
+        {% empty %}
+          <option value="">No businesses linked to your user yet</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Use this business</button>
+    </form>
+
+    <p>
+      If the list is empty: go to <a href="/admin/">Admin</a> → Org → Businesses + Memberships.
+    </p>
+  </body>
+</html>

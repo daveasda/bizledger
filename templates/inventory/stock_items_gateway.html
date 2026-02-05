@@ -1,0 +1,32 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="bg-white border rounded p-6 max-w-4xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Stock Items</h1>
+    <a href="{% url 'inventory:gateway' %}" class="px-3 py-2 rounded bg-slate-100 hover:bg-slate-200 text-sm font-medium">Quit</a>
+  </div>
+
+  <div class="space-y-6">
+    <!-- Single Stock Item -->
+    <div class="border-2 border-slate-300 rounded p-4">
+      <h2 class="text-lg font-semibold mb-3">Single Stock Item</h2>
+      <div class="flex flex-wrap gap-2">
+        <a href="{% url 'inventory:stock_item_create' %}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded">Create</a>
+        <a href="{% url 'inventory:stock_items_display' %}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded">Display</a>
+        <a href="{% url 'inventory:stock_items_display' %}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded">Alter</a>
+      </div>
+    </div>
+
+    <!-- Multiple Stock Item -->
+    <div class="border-2 border-slate-200 rounded p-4 opacity-75">
+      <h2 class="text-lg font-semibold mb-3">Multiple Stock Item</h2>
+      <div class="flex flex-wrap gap-2">
+        <a href="#" class="px-3 py-2 bg-slate-100 rounded cursor-not-allowed">Create</a>
+        <a href="#" class="px-3 py-2 bg-slate-100 rounded cursor-not-allowed">Display</a>
+        <a href="#" class="px-3 py-2 bg-slate-100 rounded cursor-not-allowed">Alter</a>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">Not yet implemented.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="bg-white rounded-xl shadow p-8 max-w-3xl mx-auto">
+  <div class="flex justify-between mb-6">
+    <div>
+      <h2 class="text-xl font-semibold">Invoice {{ inv.invoice_no }}</h2>
+      <p class="text-sm text-slate-500">Date: {{ inv.date }}</p>
+    </div>
+    <button onclick="window.print()" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
+      Print
+    </button>
+  </div>
+
+  <p class="mb-4"><b>Customer:</b> {{ inv.customer_name }}</p>
+
+  <table class="w-full text-sm mb-6">
+    <thead class="border-b">
+      <tr>
+        <th class="text-left py-2">Description</th>
+        <th class="text-right py-2">Qty</th>
+        <th class="text-right py-2">Unit</th>
+        <th class="text-right py-2">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in inv.lines.all %}
+      <tr class="border-b">
+        <td class="py-2">{{ line.description }}</td>
+        <td class="py-2 text-right">{{ line.qty }}</td>
+        <td class="py-2 text-right">{{ line.unit_price }}</td>
+        <td class="py-2 text-right">{{ line.line_total }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="text-right font-semibold text-lg">
+    Total: {{ inv.total }}
+  </div>
+</div>
+
+<style>
+@media print {
+  header, button { display: none; }
+  body { background: white; }
+}
+</style>
+
+{% endblock %}

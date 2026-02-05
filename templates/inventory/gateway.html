@@ -1,0 +1,63 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="bg-white border rounded p-6 max-w-4xl mx-auto">
+  <div class="text-center mb-6">
+    <h1 class="text-2xl font-bold mb-2">Inventory</h1>
+    <h2 class="text-xl font-semibold text-slate-600">Gateway (Tally-style)</h2>
+  </div>
+
+  <div class="space-y-6">
+    <section>
+      <h3 class="text-lg font-semibold text-slate-700 mb-3">Masters</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <a href="{% url 'inventory:items_list' %}" class="block border-2 border-slate-300 rounded p-4 hover:bg-slate-50 hover:border-slate-400">
+          <h4 class="font-semibold">Stock Items</h4>
+          <p class="text-sm text-slate-500 mt-1">Create / Alter / Display</p>
+        </a>
+        <a href="{% url 'inventory:godowns_list' %}" class="block border-2 border-slate-300 rounded p-4 hover:bg-slate-50 hover:border-slate-400">
+          <h4 class="font-semibold">Godowns</h4>
+          <p class="text-sm text-slate-500 mt-1">Create / Alter / Display</p>
+        </a>
+      </div>
+    </section>
+
+    <section>
+      <h3 class="text-lg font-semibold text-slate-700 mb-3">Vouchers</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a href="{% url 'inventory:purchase_voucher_create' %}" class="block border-2 border-slate-300 rounded p-4 hover:bg-slate-50 hover:border-slate-400">
+          <h4 class="font-semibold">Purchase</h4>
+          <p class="text-sm text-slate-500 mt-1">Purchase with items</p>
+        </a>
+        <a href="{% url 'inventory:sales_voucher' %}" class="block border-2 border-slate-300 rounded p-4 hover:bg-slate-50 hover:border-slate-400">
+          <h4 class="font-semibold">Sales</h4>
+          <p class="text-sm text-slate-500 mt-1">Sales with items</p>
+        </a>
+        <a href="{% url 'inventory:stock_journal' %}" class="block border-2 border-slate-300 rounded p-4 hover:bg-slate-50 hover:border-slate-400">
+          <h4 class="font-semibold">Stock Journal</h4>
+          <p class="text-sm text-slate-500 mt-1">Transfer between godowns</p>
+        </a>
+      </div>
+    </section>
+
+    <section>
+      <h3 class="text-lg font-semibold text-slate-700 mb-3">Reports</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <a href="{% url 'inventory:stock_summary' %}" class="block border-2 border-slate-300 rounded p-4 hover:bg-slate-50 hover:border-slate-400">
+          <h4 class="font-semibold">Stock Summary</h4>
+          <p class="text-sm text-slate-500 mt-1">Qty In, Qty Out, Closing Qty (from ledger)</p>
+        </a>
+      </div>
+    </section>
+  </div>
+
+  <div class="border-t pt-4 mt-6 text-sm text-slate-500">
+    <p class="font-medium text-slate-700 mb-2">More</p>
+    <div class="flex flex-wrap gap-2">
+      <a href="{% url 'inventory:stock_groups_gateway' %}" class="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200">Stock Groups</a>
+      <a href="{% url 'inventory:stock_items_gateway' %}" class="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200">Stock Items (full)</a>
+      <a href="{% url 'inventory:units_gateway' %}" class="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200">Units</a>
+      <a href="{% url 'inventory:balance' %}" class="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200">Balance</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

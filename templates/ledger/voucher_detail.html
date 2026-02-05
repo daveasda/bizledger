@@ -1,0 +1,60 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+<div class="bg-white border rounded p-4">
+  <div class="flex items-center justify-between">
+    <div>
+      <div class="text-lg font-semibold">Voucher {{ v.number }}</div>
+      <div class="text-sm text-gray-500">{{ v.voucher_type }} • {{ v.posting_date }}</div>
+    </div>
+    <div class="flex gap-2 items-center">
+      {% if not v.is_posted %}
+        <a href="{% url 'ledger:voucher_edit' v.id %}" class="px-3 py-2 rounded border bg-white hover:bg-gray-50">Edit</a>
+        <form method="post" action="{% url 'ledger:voucher_post' v.id %}" class="inline">
+          {% csrf_token %}
+          <button class="px-3 py-2 rounded bg-black text-white hover:opacity-90" type="submit">Post</button>
+        </form>
+      {% else %}
+        <span class="px-3 py-2 rounded bg-green-100 text-green-800">Posted</span>
+      {% endif %}
+      <form method="post" action="{% url 'ledger:voucher_delete' v.id %}" class="inline" onsubmit="return confirm('Delete this voucher? This cannot be undone.');">
+        {% csrf_token %}
+        <button type="submit" class="px-3 py-2 rounded border border-red-300 bg-white text-red-700 hover:bg-red-50">Delete</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="mt-4 overflow-x-auto">
+    <table class="w-full text-sm border rounded">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="text-left p-2">Account</th>
+          <th class="text-left p-2">Debit</th>
+          <th class="text-left p-2">Credit</th>
+          <th class="text-left p-2">Memo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ln in lines %}
+        <tr class="border-t">
+          <td class="p-2">{{ ln.account.name }}</td>
+          <td class="p-2">{{ ln.debit }}</td>
+          <td class="p-2">{{ ln.credit }}</td>
+          <td class="p-2">{{ ln.memo }}</td>
+        </tr>
+        {% empty %}
+        <tr><td class="p-2 text-gray-500" colspan="4">No lines.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-4 flex items-center justify-between text-sm">
+    <div class="text-gray-600">Debit: <b>{{ dr }}</b> • Credit: <b>{{ cr }}</b></div>
+    {% if balanced %}
+      <span class="px-2 py-1 rounded bg-green-100 text-green-800">Balanced</span>
+    {% else %}
+      <span class="px-2 py-1 rounded bg-red-100 text-red-800">Not Balanced</span>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

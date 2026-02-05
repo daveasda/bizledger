@@ -1,0 +1,31 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+<div class="grid md:grid-cols-3 gap-4">
+  <!-- List of Voucher Types -->
+  <div class="md:col-span-2 bg-white border rounded p-4">
+    <div class="bg-blue-600 text-white px-3 py-2 mb-2 font-semibold">List of Voucher Types</div>
+    <div class="bg-white border rounded max-h-96 overflow-y-auto">
+      {% for vt in voucher_types %}
+      <div class="px-2 py-1 hover:bg-gray-100 cursor-pointer {% if forloop.first %}bg-blue-500 text-white{% endif %}">
+        {{ vt.label }}
+      </div>
+      {% empty %}
+      <div class="px-2 py-1 text-gray-600">No voucher types found.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Actions Panel -->
+  <div class="bg-gray-100 border rounded p-4">
+    <div class="font-semibold mb-3">Voucher Types</div>
+    <div class="space-y-1">
+      <a href="{% url 'ledger:voucher_type_create' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Create</a>
+      <a href="{% url 'ledger:voucher_types_display' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Display</a>
+      <a href="{% url 'ledger:voucher_types_display' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Alter</a>
+    </div>
+    <div class="pt-2 mt-3 border-t">
+      <a href="{% url 'ledger:accounts_gateway' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded text-center">Quit</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

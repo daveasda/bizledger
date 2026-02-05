@@ -1,0 +1,100 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="max-w-6xl mx-auto">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">Standard Rates</h1>
+    <div class="flex gap-2">
+      <a href="{% url 'inventory:stock_item_alter' item.pk %}" class="px-3 py-2 rounded bg-slate-100 hover:bg-slate-200 text-sm font-medium">Alter Item</a>
+      <a href="{% url 'inventory:stock_items_display' %}" class="px-3 py-2 rounded bg-slate-100 hover:bg-slate-200 text-sm font-medium">Quit</a>
+    </div>
+  </div>
+
+  <div class="grid md:grid-cols-3 gap-6">
+    <!-- Item details (left) -->
+    <div class="bg-white border rounded p-4 h-fit">
+      <div class="font-semibold mb-3">Stock Item: {{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}</div>
+      <dl class="space-y-2 text-sm">
+        <div><dt class="text-gray-500">Name</dt><dd>{{ item.sku }}</dd></div>
+        <div><dt class="text-gray-500">alias</dt><dd>{{ item.alias|default:"—" }}</dd></div>
+        <div><dt class="text-gray-500">Under</dt><dd>{{ item.stock_group|default:"Primary" }}</dd></div>
+        <div><dt class="text-gray-500">Units</dt><dd>{{ unit_symbol }}</dd></div>
+        <div><dt class="text-gray-500">Reorder Level</dt><dd>{{ item.reorder_level }}</dd></div>
+      </dl>
+    </div>
+
+    <!-- Standard Cost and Standard Selling Price tables (right) -->
+    <div class="md:col-span-2 space-y-6">
+      <form method="post" action="">
+        {% csrf_token %}
+
+        {% if cost_formset.non_form_errors or selling_formset.non_form_errors %}
+        <div class="mb-4 p-3 rounded border border-red-400 bg-red-50 text-red-800 text-sm">
+          {{ cost_formset.non_form_errors }}{{ selling_formset.non_form_errors }}
+        </div>
+        {% endif %}
+
+        <!-- Standard Cost -->
+        <div class="bg-white border rounded p-4">
+          <div class="font-semibold mb-3">Standard Cost</div>
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b">
+                <th class="text-left py-2 px-2">Applicable From</th>
+                <th class="text-left py-2 px-2">Rate</th>
+                <th class="text-left py-2 px-2">per</th>
+                <th class="w-12"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for form in cost_formset %}
+              <tr class="border-b border-gray-100">
+                {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                <td class="py-1 px-2">{{ form.applicable_from }}</td>
+                <td class="py-1 px-2">{{ form.rate }}</td>
+                <td class="py-1 px-2">{{ unit_symbol }}</td>
+                {% if form.instance.pk %}<td class="py-1 px-2">{{ form.DELETE }} Delete</td>{% else %}<td></td>{% endif %}
+              </tr>
+              {% if form.errors %}<tr><td colspan="4" class="text-red-600 text-xs px-2">{{ form.errors }}</td></tr>{% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+          {{ cost_formset.management_form }}
+        </div>
+
+        <!-- Standard Selling Price -->
+        <div class="bg-white border rounded p-4">
+          <div class="font-semibold mb-3">Standard Selling Price</div>
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b">
+                <th class="text-left py-2 px-2">Applicable From</th>
+                <th class="text-left py-2 px-2">Rate</th>
+                <th class="text-left py-2 px-2">per</th>
+                <th class="w-12"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for form in selling_formset %}
+              <tr class="border-b border-gray-100">
+                {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                <td class="py-1 px-2">{{ form.applicable_from }}</td>
+                <td class="py-1 px-2">{{ form.rate }}</td>
+                <td class="py-1 px-2">{{ unit_symbol }}</td>
+                {% if form.instance.pk %}<td class="py-1 px-2">{{ form.DELETE }} Delete</td>{% else %}<td></td>{% endif %}
+              </tr>
+              {% if form.errors %}<tr><td colspan="4" class="text-red-600 text-xs px-2">{{ form.errors }}</td></tr>{% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+          {{ selling_formset.management_form }}
+        </div>
+
+        <div class="flex gap-2">
+          <button type="submit" class="px-6 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 font-semibold">Accept</button>
+          <a href="{% url 'inventory:stock_items_display' %}" class="px-6 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 font-semibold">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

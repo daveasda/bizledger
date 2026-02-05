@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-2xl">
+  <h1 class="text-2xl font-semibold mb-2">Reports</h1>
+  <p class="text-slate-500 text-sm mb-6">Select a report to view.</p>
+
+  <div class="space-y-3">
+    <a href="{% url 'reports:profit_and_loss' %}" class="block p-4 rounded-lg border bg-white hover:bg-slate-50 hover:border-slate-300 transition">
+      <span class="font-medium">Profit and Loss A/C</span>
+      <p class="text-sm text-slate-500 mt-1">Income vs expenses from posted vouchers (Tally-style).</p>
+    </a>
+  </div>
+</div>
+{% endblock %}

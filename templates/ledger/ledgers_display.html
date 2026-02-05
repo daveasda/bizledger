@@ -1,0 +1,38 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+<div class="grid md:grid-cols-3 gap-4">
+  <!-- List of Ledgers -->
+  <div class="md:col-span-2 bg-white border rounded p-4">
+    <div class="bg-blue-600 text-white px-3 py-2 mb-2 font-semibold">List of Ledgers</div>
+    <div class="bg-white border rounded p-2 mb-2">
+      <div class="text-sm text-gray-600 mb-1">Name of Ledger</div>
+      <div class="h-8 border-b"></div>
+    </div>
+    <div class="bg-white border rounded max-h-96 overflow-y-auto">
+      {% for ledger in ledgers %}
+      <a href="{% url 'ledger:ledger_alter' ledger.id %}" class="block px-2 py-1 hover:bg-gray-100 cursor-pointer {% if forloop.first %}bg-blue-500 text-white{% endif %}">
+        {{ ledger.name }}
+      </a>
+      {% empty %}
+      <div class="px-2 py-1 text-gray-600">No ledgers found. Create one to get started.</div>
+      {% endfor %}
+      {% if ledgers|length > 20 %}
+      <div class="px-2 py-1 text-sm text-gray-600">{{ ledgers|length|add:"-20" }} more...</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Actions Panel -->
+  <div class="bg-gray-100 border rounded p-4">
+    <div class="font-semibold mb-3">Ledgers</div>
+    <div class="space-y-1">
+      <a href="{% url 'ledger:ledger_create' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Create</a>
+      <a href="{% url 'ledger:ledgers_display' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Display</a>
+      <a href="{% url 'ledger:ledgers_display' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Alter</a>
+    </div>
+    <div class="pt-2 mt-3 border-t">
+      <a href="{% url 'ledger:accounts_gateway' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded text-center">Quit</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
