@@ -17,8 +17,8 @@ from ledger.models import Account, VoucherLine
 _INCOME_NAME_HINTS = ("sales", "revenue", "income")
 _EXPENSE_NAME_HINTS = ("purchase", "rent", "salary", "electricity", "wages", "expense")
 # Split trading P&L: Sales vs Other Income, Purchase vs Indirect Expense
-_SALES_NAME_HINTS = ("sales",)
-_PURCHASE_NAME_HINTS = ("purchase",)
+_SALES_NAME_HINTS = ("sales", "revenue", "sale")
+_PURCHASE_NAME_HINTS = ("purchase", "purchases", "purch")
 
 
 def _resolve_root_types(business, account_ids):
@@ -114,6 +114,7 @@ def compute_profit_and_loss(
             "account__name",
             "account__root_type",
             "account__parent__root_type",
+            "account__parent__name",
         )
         .annotate(
             dr=Sum("debit", default=Decimal("0.00")),
@@ -148,11 +149,13 @@ def compute_profit_and_loss(
 
         name = (r.get("account__name") or "").strip() or "?"
         name_lower = name.lower()
+        parent_name = (r.get("account__parent__name") or "").strip() or ""
+        parent_name_lower = parent_name.lower()
 
         if not root_type or root_type not in ("INCOME", "EXPENSE"):
-            if any(h in name_lower for h in _INCOME_NAME_HINTS):
+            if any(h in name_lower for h in _INCOME_NAME_HINTS) or any(h in parent_name_lower for h in _INCOME_NAME_HINTS):
                 root_type = "INCOME"
-            elif any(h in name_lower for h in _EXPENSE_NAME_HINTS):
+            elif any(h in name_lower for h in _EXPENSE_NAME_HINTS) or any(h in parent_name_lower for h in _EXPENSE_NAME_HINTS):
                 root_type = "EXPENSE"
         dr = r["dr"] or Decimal("0.00")
         cr = r["cr"] or Decimal("0.00")
@@ -177,7 +180,7 @@ def compute_profit_and_loss(
                 if debug:
                     debug_rows[-1]["classification"] = "INCOME (amt=0, skipped)"
                 continue
-            if any(h in name_lower for h in _SALES_NAME_HINTS):
+            if any(h in name_lower for h in _SALES_NAME_HINTS) or any(h in parent_name_lower for h in _SALES_NAME_HINTS):
                 sales.append((name, amt))
                 sales_total += amt
                 if debug:
@@ -193,7 +196,7 @@ def compute_profit_and_loss(
                 if debug:
                     debug_rows[-1]["classification"] = "EXPENSE (amt=0, skipped)"
                 continue
-            if any(h in name_lower for h in _PURCHASE_NAME_HINTS):
+            if any(h in name_lower for h in _PURCHASE_NAME_HINTS) or any(h in parent_name_lower for h in _PURCHASE_NAME_HINTS):
                 purchases.append((name, amt))
                 purchase_total += amt
                 if debug:

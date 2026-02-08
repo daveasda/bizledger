@@ -180,7 +180,14 @@ class PurchaseVoucherForm(forms.Form):
         if business:
             from ledger.models import Account
             self.fields["party"].queryset = Account.objects.filter(business=business, is_group=False).order_by("name")
-            self.fields["purchase_ledger"].queryset = Account.objects.filter(business=business, is_group=False).order_by("name")
+            # Prefer EXPENSE accounts for Purchase Ledger; include purchase-named accounts if COA has wrong root_type
+            from django.db.models import Q
+            purchase_qs = Account.objects.filter(
+                business=business, is_group=False
+            ).filter(Q(root_type="EXPENSE") | Q(name__icontains="purchase")).order_by("name")
+            if not purchase_qs.exists():
+                purchase_qs = Account.objects.filter(business=business, is_group=False).order_by("name")
+            self.fields["purchase_ledger"].queryset = purchase_qs
             self.fields["godown"].queryset = Godown.objects.filter(business=business).order_by("name")
 
 
@@ -198,7 +205,14 @@ class SalesVoucherForm(forms.Form):
         if business:
             from ledger.models import Account
             self.fields["party"].queryset = Account.objects.filter(business=business, is_group=False).order_by("name")
-            self.fields["sales_ledger"].queryset = Account.objects.filter(business=business, is_group=False).order_by("name")
+            # Prefer INCOME accounts for Sales Ledger; include sales-named accounts if COA has wrong root_type
+            from django.db.models import Q
+            sales_qs = Account.objects.filter(
+                business=business, is_group=False
+            ).filter(Q(root_type="INCOME") | Q(name__icontains="sales")).order_by("name")
+            if not sales_qs.exists():
+                sales_qs = Account.objects.filter(business=business, is_group=False).order_by("name")
+            self.fields["sales_ledger"].queryset = sales_qs
             self.fields["godown"].queryset = Godown.objects.filter(business=business).order_by("name")
 
 

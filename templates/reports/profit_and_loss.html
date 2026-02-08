@@ -105,6 +105,12 @@
     </div>
   </div>
 
+  {% if not sales_total and closing_stock_value and closing_stock_value > 0 %}
+  <div class="mt-4 p-3 rounded bg-amber-50 border border-amber-200 text-sm text-amber-800">
+    <strong>Tip:</strong> You have closing stock but no sales in the P&L. Ensure Sales vouchers use <strong>Sales A/C</strong> (not Cash) as the credit account, and Purchase vouchers use <strong>Purchase A/C</strong> (not Cash) as the debit account. Void wrong vouchers and re-create with correct ledgers.
+  </div>
+  {% endif %}
+
   {# Net Profit = Gross Profit − Indirect Expenses + Other Income #}
   <div class="mt-6 pt-4 border-t-2 flex flex-wrap items-center justify-between gap-4">
     {% if other_income %}
