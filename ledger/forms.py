@@ -15,7 +15,7 @@ class AccountForm(forms.ModelForm):
         model = Account
         fields = [
             "name", "parent", "is_group", "root_type", "account_type",
-            "inventory_values_affected", "opening_balance", "opening_balance_date",
+            "inventory_values_affected", "opening_balance", "opening_balance_type", "opening_balance_date",
             "mailing_name", "mailing_address", "mailing_state", "mailing_pin_code",
             "income_tax_no", "sales_tax_no"
         ]
@@ -27,6 +27,7 @@ class AccountForm(forms.ModelForm):
             "account_type": forms.TextInput(attrs={"class": "w-full px-3 py-2 border-0 focus:outline-none"}),
             "inventory_values_affected": forms.CheckboxInput(attrs={"class": "h-5 w-5"}),
             "opening_balance": forms.NumberInput(attrs={"step": "0.01", "class": "w-full px-3 py-2 border-0 focus:outline-none", "placeholder": "0.00"}),
+            "opening_balance_type": forms.Select(attrs={"class": "w-full px-3 py-2 border-0 focus:outline-none"}),
             "opening_balance_date": forms.DateInput(attrs={"type": "date", "class": "w-full px-3 py-2 border-0 focus:outline-none"}),
             "mailing_name": forms.TextInput(attrs={"class": "w-full px-3 py-2 border-0 focus:outline-none", "placeholder": ""}),
             "mailing_address": forms.Textarea(attrs={"rows": 3, "class": "w-full px-3 py-2 border-0 focus:outline-none", "placeholder": ""}),
@@ -42,6 +43,7 @@ class AccountForm(forms.ModelForm):
             "is_group": "Group behaves like a Sub-Ledger",
             "inventory_values_affected": "Inventory values are affected",
             "opening_balance": "Opening Balance",
+            "opening_balance_type": "Dr/Cr",
             "opening_balance_date": "Opening Balance Date",
             "mailing_name": "Name",
             "mailing_address": "Address",
@@ -70,6 +72,7 @@ class AccountForm(forms.ModelForm):
         self.fields["account_type"].required = False
         self.fields["inventory_values_affected"].required = False
         self.fields["opening_balance"].required = False
+        self.fields["opening_balance_type"].required = False
         self.fields["opening_balance_date"].required = False
         self.fields["mailing_name"].required = False
         self.fields["mailing_address"].required = False
@@ -100,9 +103,12 @@ class AccountForm(forms.ModelForm):
         behaves_like_subledger = cleaned_data.get("behaves_like_subledger", False)
         cleaned_data["is_group"] = not behaves_like_subledger
 
-        # For ledgers (is_group=False): parent is required
+        # For ledgers (is_group=False): parent is required unless primary ledger (e.g. Profit & Loss A/c)
         if not cleaned_data["is_group"] and not parent:
-            raise forms.ValidationError({"parent": "Ledgers must have a parent group. Please select 'Under'."})
+            if self.instance and getattr(self.instance, "is_primary_ledger", False):
+                cleaned_data["parent"] = None
+            else:
+                raise forms.ValidationError({"parent": "Ledgers must have a parent group. Please select 'Under'."})
 
         # For groups without parent: root_type is required (it's a root)
         if not parent:

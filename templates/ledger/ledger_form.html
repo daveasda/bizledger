@@ -3,6 +3,19 @@
 <div class="bg-white border rounded p-6 max-w-3xl mx-auto">
   <div class="bg-green-600 text-white px-4 py-2 mb-4 font-semibold text-center rounded">{{ title }}</div>
 
+  {% if ledger %}
+  <div class="flex border-b mb-4">
+    <a href="{% url 'ledger:ledger_alter' ledger.id %}"
+       class="px-4 py-2 border-b-2 border-green-600 font-semibold">
+      Ledger
+    </a>
+    <a href="{% url 'ledger:ledger_voucher_details' ledger.id %}"
+       class="px-4 py-2 border-b-2 border-transparent hover:border-gray-300">
+      Ledger Voucher Details
+    </a>
+  </div>
+  {% endif %}
+
   <form method="post" action="" class="space-y-4 bg-yellow-50 p-6 rounded border">
     {% csrf_token %}
     {% if hide_nature_of_group %}
@@ -79,11 +92,23 @@
           {{ form.opening_balance }}
         </div>
         <div class="bg-white border rounded">
+          {{ form.opening_balance_type }}
+        </div>
+        <div class="bg-white border rounded">
           {{ form.opening_balance_date }}
         </div>
       </div>
       {{ form.opening_balance.errors }}
+      {{ form.opening_balance_type.errors }}
       {{ form.opening_balance_date.errors }}
+    </div>
+
+    <div class="border rounded p-4 bg-gray-50 mt-4">
+      <div class="font-semibold mb-2">Total Op. Bal.</div>
+      <div class="flex gap-6">
+        <div>Dr: {{ total_op_dr|floatformat:2 }}</div>
+        <div>Cr: {{ total_op_cr|floatformat:2 }}</div>
+      </div>
     </div>
 
     <!-- Mailing & Related Details Section -->

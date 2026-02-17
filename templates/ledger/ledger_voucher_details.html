@@ -1,0 +1,65 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+<div class="bg-white border rounded p-6 max-w-5xl mx-auto">
+  <div class="bg-green-600 text-white px-4 py-2 mb-4 font-semibold text-center rounded">
+    Ledger Vouchers — Ledger: {{ ledger.name }}
+  </div>
+
+  <!-- Tabs: Ledger | Ledger Voucher Details -->
+  <div class="flex border-b mb-4">
+    <a href="{% url 'ledger:ledger_alter' ledger.id %}"
+       class="px-4 py-2 border-b-2 border-transparent hover:border-gray-300">
+      Ledger
+    </a>
+    <a href="{% url 'ledger:ledger_voucher_details' ledger.id %}"
+       class="px-4 py-2 border-b-2 border-green-600 font-semibold">
+      Ledger Voucher Details
+    </a>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse border">
+      <thead>
+        <tr class="bg-gray-100">
+          <th class="border p-2 text-left">Date</th>
+          <th class="border p-2 text-left">Particulars</th>
+          <th class="border p-2 text-left">Vch Type</th>
+          <th class="border p-2 text-left">Vch No.</th>
+          <th class="border p-2 text-right">Debit</th>
+          <th class="border p-2 text-right">Credit</th>
+          <th class="border p-2 text-right">Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in transactions %}
+        <tr>
+          <td class="border p-2">{{ t.date|date:"d-M-Y" }}</td>
+          <td class="border p-2">{{ t.particulars }}</td>
+          <td class="border p-2">{{ t.vch_type }}</td>
+          <td class="border p-2">
+            <a href="{% url 'ledger:voucher_detail' t.voucher_id %}" class="text-blue-600 hover:underline">{{ t.vch_no }}</a>
+          </td>
+          <td class="border p-2 text-right">{{ t.debit|floatformat:2 }}</td>
+          <td class="border p-2 text-right">{{ t.credit|floatformat:2 }}</td>
+          <td class="border p-2 text-right">{{ t.running_balance }} {{ t.running_drcr }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="border p-4 text-center text-gray-500">No transactions yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-4 flex justify-end gap-8 border-t pt-4">
+    <div><strong>Opening Balance:</strong> {{ opening_balance }} {{ opening_drcr }}</div>
+    <div><strong>Closing Balance:</strong> {{ closing_balance }} {{ closing_drcr }}</div>
+  </div>
+
+  <div class="mt-4">
+    <a href="{% url 'ledger:ledger_alter' ledger.id %}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Back to Ledger</a>
+    <a href="{% url 'ledger:ledgers_display' %}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 ml-2">Ledgers Display</a>
+  </div>
+</div>
+{% endblock %}

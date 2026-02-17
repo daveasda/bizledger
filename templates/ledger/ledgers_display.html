@@ -10,9 +10,10 @@
     </div>
     <div class="bg-white border rounded max-h-96 overflow-y-auto">
       {% for ledger in ledgers %}
-      <a href="{% url 'ledger:ledger_alter' ledger.id %}" class="block px-2 py-1 hover:bg-gray-100 cursor-pointer {% if forloop.first %}bg-blue-500 text-white{% endif %}">
-        {{ ledger.name }}
-      </a>
+      <div class="flex items-center justify-between px-2 py-1 hover:bg-gray-100 {% if forloop.first %}bg-blue-500 text-white{% endif %}">
+        <a href="{% url 'ledger:ledger_alter' ledger.id %}" class="flex-1 cursor-pointer {% if forloop.first %}text-white hover:text-white{% endif %}">{{ ledger.name }}</a>
+        <a href="{% url 'ledger:ledger_voucher_details' ledger.id %}" class="text-xs px-2 py-0.5 rounded border {% if forloop.first %}border-white text-white hover:bg-white/20{% else %}border-gray-300 hover:bg-gray-200{% endif %}">Voucher</a>
+      </div>
       {% empty %}
       <div class="px-2 py-1 text-gray-600">No ledgers found. Create one to get started.</div>
       {% endfor %}

@@ -49,9 +49,18 @@ class Account(models.Model):
     # Optional: lock root nodes like Tally "Primary"
     is_root = models.BooleanField(default=False, editable=False)
 
+    # Exception: one ledger with no group (e.g. Profit & Loss A/c) to store gross profit
+    is_primary_ledger = models.BooleanField(default=False, blank=True)
+
     # Inventory and Opening Balance fields
     inventory_values_affected = models.BooleanField(default=False, blank=True)
     opening_balance = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"), blank=True, null=True)
+    opening_balance_type = models.CharField(
+        max_length=2,
+        choices=[("DR", "Dr"), ("CR", "Cr")],
+        blank=True,
+        default="DR",
+    )
     opening_balance_date = models.DateField(null=True, blank=True)
 
     # Mailing & Related Details
@@ -73,16 +82,18 @@ class Account(models.Model):
         return f"{self.name}"
 
     def clean(self):
-        # Root accounts: parent must be null, must be group
+        # Root accounts: parent must be null; usually must be group (exception: primary ledger)
         if self.parent is None:
-            # Treat parent=None as a "root candidate"
-            if not self.is_group:
-                raise ValidationError({"is_group": "Root account must be a Group (is_group=True)."})
-            # Root accounts must have root_type
-            if not self.root_type:
-                raise ValidationError({"root_type": "Root accounts must have a Nature of Group."})
-            # report_type derived from root_type
-            self.report_type = report_type_from_root(self.root_type)
+            if self.is_group:
+                # Root group: must have root_type
+                if not self.root_type:
+                    raise ValidationError({"root_type": "Root accounts must have a Nature of Group."})
+                self.report_type = report_type_from_root(self.root_type)
+            else:
+                # Ledger with no parent: only allowed for primary ledger (e.g. Profit & Loss A/c)
+                if not self.is_primary_ledger:
+                    raise ValidationError({"is_group": "Root account must be a Group (is_group=True), unless it is a primary ledger."})
+                self.report_type = ReportType.PROFIT_LOSS
         else:
             # Parent must be group
             if not self.parent.is_group:
@@ -110,8 +121,8 @@ class Account(models.Model):
                 raise ValidationError("Root accounts cannot be altered.")
 
     def save(self, *args, **kwargs):
-        # Mark as root if parent is None
-        self.is_root = self.parent_id is None
+        # Root = no parent and is a group (primary ledgers have no parent but are not "root" for locking)
+        self.is_root = self.parent_id is None and self.is_group
         self.full_clean()
         return super().save(*args, **kwargs)
 

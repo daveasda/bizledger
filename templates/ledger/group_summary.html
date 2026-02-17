@@ -1,0 +1,49 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+<div class="bg-white border rounded p-6 max-w-5xl mx-auto">
+  <div class="bg-blue-600 text-white px-4 py-2 mb-4 font-semibold text-center rounded">
+    Group Summary — {{ group.name }}
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse border">
+      <thead>
+        <tr class="bg-gray-100">
+          <th class="border p-2 text-left">Particulars</th>
+          <th class="border p-2 text-right">Closing Balance (Debit)</th>
+          <th class="border p-2 text-right">Closing Balance (Credit)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="border-t hover:bg-gray-50">
+          <td class="border p-2">
+            <a href="{% url 'ledger:ledger_voucher_details' row.ledger.id %}" class="text-blue-600 hover:underline">{{ row.ledger.name }}</a>
+          </td>
+          <td class="border p-2 text-right font-mono">{{ row.closing_dr|floatformat:2 }}</td>
+          <td class="border p-2 text-right font-mono">{{ row.closing_cr|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="3" class="border p-4 text-center text-gray-500">No ledgers under this group.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if rows %}
+      <tfoot>
+        <tr class="border-t-2 border-gray-300 bg-slate-100 font-semibold">
+          <td class="border p-2">Grand Total</td>
+          <td class="border p-2 text-right font-mono">{{ grand_total_dr|floatformat:2 }}</td>
+          <td class="border p-2 text-right font-mono">{{ grand_total_cr|floatformat:2 }}</td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+
+  <div class="mt-4">
+    <a href="{% url 'ledger:group_alter' group.id %}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Back to Group</a>
+    <a href="{% url 'ledger:groups_display' %}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 ml-2">Groups Display</a>
+  </div>
+</div>
+{% endblock %}

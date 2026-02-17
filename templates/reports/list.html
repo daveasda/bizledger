@@ -9,6 +9,10 @@
       <span class="font-medium">Profit and Loss A/C</span>
       <p class="text-sm text-slate-500 mt-1">Income vs expenses from posted vouchers (Tally-style).</p>
     </a>
+    <a href="{% url 'reports:balance_sheet' %}" class="block p-4 rounded-lg border bg-white hover:bg-slate-50 hover:border-slate-300 transition">
+      <span class="font-medium">Balance Sheet</span>
+      <p class="text-sm text-slate-500 mt-1">Liabilities and Assets with group summaries; Profit & Loss A/c shows gross profit.</p>
+    </a>
   </div>
 </div>
 {% endblock %}

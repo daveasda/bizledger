@@ -1,0 +1,64 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+
+<div class="bg-white border rounded p-4">
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <div class="text-sm text-gray-500">Reports</div>
+      <div class="text-xl font-semibold">Balance Sheet</div>
+      <div class="text-xs text-gray-500 mt-1">{{ business }}</div>
+      <div class="text-xs text-gray-600 mt-1">
+        {% if end_date %}As at {{ end_date|date:"d-M-Y" }}{% else %}As at latest posted data{% endif %}
+      </div>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+      <a href="{% url 'reports:reports_list' %}" class="px-3 py-2 rounded border bg-white hover:bg-gray-50 text-sm">← Reports</a>
+    </div>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-6">
+    <!-- Liabilities -->
+    <div class="border rounded p-4 bg-slate-50/50">
+      <div class="font-semibold mb-2 text-slate-800">Liabilities</div>
+      <table class="w-full text-sm">
+        {% for name, amt in liability_rows %}
+        <tr class="border-b border-slate-200">
+          <td class="py-2">{{ name }}</td>
+          <td class="py-2 text-right font-mono">{{ amt|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr class="border-b border-slate-200"><td class="py-2 text-slate-500">—</td><td class="py-2 text-right"></td></tr>
+        {% endfor %}
+        <tr class="border-b border-slate-200">
+          <td class="py-2">Profit & Loss A/c</td>
+          <td class="py-2 text-right font-mono">{{ gross_profit|floatformat:2 }}</td>
+        </tr>
+        <tr class="border-t-2 border-slate-300 font-semibold mt-2">
+          <td class="pt-3">Total</td>
+          <td class="pt-3 text-right font-mono">{{ total_liabilities|floatformat:2 }}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Assets -->
+    <div class="border rounded p-4 bg-slate-50/50">
+      <div class="font-semibold mb-2 text-slate-800">Assets</div>
+      <table class="w-full text-sm">
+        {% for name, amt in asset_rows %}
+        <tr class="border-b border-slate-200">
+          <td class="py-2">{{ name }}</td>
+          <td class="py-2 text-right font-mono">{{ amt|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr class="border-b border-slate-200"><td class="py-2 text-slate-500">—</td><td class="py-2 text-right"></td></tr>
+        {% endfor %}
+        <tr class="border-t-2 border-slate-300 font-semibold mt-2">
+          <td class="pt-3">Total</td>
+          <td class="pt-3 text-right font-mono">{{ total_assets|floatformat:2 }}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

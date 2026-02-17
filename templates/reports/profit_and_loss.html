@@ -42,7 +42,7 @@
       <div class="font-semibold mb-2 text-slate-800">Particulars (Debit)</div>
       <table class="w-full text-sm">
         <tr class="border-b border-slate-200">
-          <td class="py-2">Opening Stock</td>
+          <td class="py-2"><a href="{% url 'inventory:stock_summary' %}{{ stock_summary_query }}" class="text-blue-600 hover:underline">Opening Stock</a></td>
           <td class="py-2 text-right font-mono">{{ opening_stock_value|floatformat:2 }}</td>
         </tr>
         {% for name, amt in purchases %}
@@ -94,7 +94,7 @@
         </tr>
         {% endif %}
         <tr class="border-b border-slate-200">
-          <td class="py-2">Closing Stock</td>
+          <td class="py-2"><a href="{% url 'inventory:stock_summary' %}{{ stock_summary_query }}" class="text-blue-600 hover:underline">Closing Stock</a></td>
           <td class="py-2 text-right font-mono">{{ closing_stock_value|floatformat:2 }}</td>
         </tr>
         <tr class="border-t-2 border-slate-300 font-semibold mt-2">

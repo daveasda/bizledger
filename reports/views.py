@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
+from ledger.services.balance_sheet import compute_balance_sheet
 from ledger.services.pnl import compute_profit_and_loss
 from ledger.services.stock_valuation import closing_stock_value_per_godown
 from ledger.utils import get_active_business_id
@@ -106,4 +107,28 @@ def profit_and_loss(request):
         data["closing_stock_per_godown"] = []
         data["godowns"] = []
 
+    # Query string for "Opening Stock" / "Closing Stock" links to Stock Summary (same godown/date range)
+    qs_parts = []
+    if godown:
+        qs_parts.append(f"godown={godown.id}")
+    if start_date:
+        qs_parts.append(f"date_from={start_date:%Y-%m-%d}")
+    if end_date:
+        qs_parts.append(f"date_to={end_date:%Y-%m-%d}")
+    data["stock_summary_query"] = "?" + "&".join(qs_parts) if qs_parts else ""
+
     return render(request, "reports/profit_and_loss.html", data)
+
+
+@login_required
+def balance_sheet(request):
+    """Balance Sheet: Liabilities (left) and Assets (right). Profit & Loss A/c row shows gross profit from P&L."""
+    bid = get_active_business_id(request)
+    if not bid:
+        return redirect(reverse("org:select_business"))
+    business = get_object_or_404(Business, id=bid)
+    end_date = _parse_date(request.GET.get("end_date"))
+    data = compute_balance_sheet(business, end_date=end_date)
+    data["business"] = business
+    data["end_date"] = end_date
+    return render(request, "reports/balance_sheet.html", data)

@@ -545,16 +545,22 @@ def stock_summary(request):
         .annotate(total_in=Sum("qty_in"), total_out=Sum("qty_out"))
         .order_by("item__sku")
     )
+    purchase_rates = _item_standard_cost_rates(business)  # item_id -> rate (str), standard COST = purchase rate
     summary_rows = []
     for r in rows:
         total_in = r["total_in"] or Decimal("0")
         total_out = r["total_out"] or Decimal("0")
+        balance = total_in - total_out
+        rate_str = purchase_rates.get(str(r["item_id"]), "0")
+        purchase_rate = Decimal(rate_str) if rate_str else Decimal("0")
+        closing_value = (balance * purchase_rate).quantize(Decimal("0.01"))
         summary_rows.append({
             "item_id": r["item_id"],
             "item_sku": r["item__sku"],
             "qty_in": total_in,
             "qty_out": total_out,
-            "balance": total_in - total_out,
+            "balance": balance,
+            "closing_stock_value": closing_value,
         })
 
     godowns = Godown.objects.filter(business=business).order_by("name")

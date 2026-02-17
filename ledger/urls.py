@@ -13,11 +13,13 @@ urlpatterns = [
     path("accounts/groups/create/", views.group_create, name="group_create"),
     path("accounts/groups/display/", views.groups_display, name="groups_display"),
     path("accounts/groups/<int:pk>/alter/", views.group_alter, name="group_alter"),
-    
+    path("accounts/groups/<int:pk>/summary/", views.group_summary, name="group_summary"),
+
     # Ledgers
     path("accounts/ledgers/create/", views.ledger_create, name="ledger_create"),
     path("accounts/ledgers/display/", views.ledgers_display, name="ledgers_display"),
     path("accounts/ledgers/<int:pk>/alter/", views.ledger_alter, name="ledger_alter"),
+    path("accounts/ledgers/<int:pk>/voucher-details/", views.ledger_voucher_details, name="ledger_voucher_details"),
     
     # Voucher Types
     path("accounts/voucher-types/create/", views.voucher_type_create, name="voucher_type_create"),

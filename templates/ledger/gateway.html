@@ -39,7 +39,8 @@
     <a href="{% url 'ledger:voucher_entry' 'RECEIPT' %}" class="px-3 py-2 rounded bg-black text-white hover:opacity-90">Receipt</a>
     <a href="{% url 'ledger:voucher_entry' 'PAYMENT' %}" class="px-3 py-2 rounded bg-black text-white hover:opacity-90">Payment</a>
     <a href="{% url 'ledger:voucher_entry' 'CONTRA' %}" class="px-3 py-2 rounded bg-black text-white hover:opacity-90">Contra</a>
-    <a href="{% url 'ledger:voucher_entry' 'SALES' %}" class="px-3 py-2 rounded bg-black text-white hover:opacity-90">Sales</a>
+    <a href="{% url 'inventory:sales_voucher' %}" class="px-3 py-2 rounded bg-black text-white hover:opacity-90">Sales</a>
+    <a href="{% url 'inventory:purchase_voucher_create' %}" class="px-3 py-2 rounded bg-black text-white hover:opacity-90">Purchase</a>
     <a href="{% url 'ledger:voucher_list' %}" class="px-3 py-2 rounded border bg-white hover:bg-gray-50">Voucher List</a>
   </div>
 </div>

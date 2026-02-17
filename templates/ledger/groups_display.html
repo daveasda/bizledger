@@ -10,9 +10,10 @@
     </div>
     <div class="bg-white border rounded max-h-96 overflow-y-auto">
       {% for group in groups %}
-      <a href="{% url 'ledger:group_alter' group.id %}" class="block px-2 py-1 hover:bg-gray-100 cursor-pointer {% if forloop.first %}bg-blue-500 text-white{% endif %}">
-        {{ group.name }}
-      </a>
+      <div class="flex items-center justify-between px-2 py-1 hover:bg-gray-100 {% if forloop.first %}bg-blue-500 text-white{% endif %}">
+        <a href="{% url 'ledger:group_alter' group.id %}" class="flex-1 cursor-pointer {% if forloop.first %}text-white hover:text-white{% endif %}">{{ group.name }}</a>
+        <a href="{% url 'ledger:group_summary' group.id %}" class="text-xs px-2 py-0.5 rounded border {% if forloop.first %}border-white text-white hover:bg-white/20{% else %}border-gray-300 hover:bg-gray-200{% endif %}">Summary</a>
+      </div>
       {% empty %}
       <div class="px-2 py-1 text-gray-600">No groups found. Create one to get started.</div>
       {% endfor %}

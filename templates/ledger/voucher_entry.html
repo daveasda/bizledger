@@ -1,6 +1,7 @@
 {% extends "ledger/base_ledger.html" %}
 {% block ledger_content %}
-<div class="bg-white border rounded p-4">
+<div class="flex gap-6 items-start">
+<div class="flex-1 min-w-0 bg-white border rounded p-4">
   <div class="flex items-center justify-between">
     <div>
       <div class="text-sm text-gray-500">Accounting Voucher Creation</div>
@@ -119,6 +120,20 @@
       </a>
     </div>
   </form>
+</div>
+{% if vtype|upper == "SALES" or vtype|upper == "PURCHASE" %}
+<div class="flex-shrink-0 w-52">
+  <div class="bg-slate-50 border border-slate-200 rounded p-4 sticky top-4">
+    <p class="text-sm font-semibold text-slate-700 mb-2">Mode</p>
+    <p class="text-xs text-slate-500 mb-3">You can also enter this voucher with item-wise details.</p>
+    {% if vtype|upper == "SALES" %}
+    <a href="{% url 'inventory:sales_voucher' %}" class="block w-full text-center px-3 py-2 rounded bg-slate-200 text-slate-800 hover:bg-slate-300 text-sm font-medium">Switch to Inventory mode (with Items)</a>
+    {% else %}
+    <a href="{% url 'inventory:purchase_voucher_create' %}" class="block w-full text-center px-3 py-2 rounded bg-slate-200 text-slate-800 hover:bg-slate-300 text-sm font-medium">Switch to Inventory mode (with Items)</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
 </div>
 
 <script>

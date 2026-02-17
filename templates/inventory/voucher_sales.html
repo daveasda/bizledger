@@ -1,6 +1,7 @@
 {% extends "inventory/base_inventory.html" %}
 {% block inventory_content %}
-<div class="bg-white border rounded p-6 max-w-4xl mx-auto">
+<div class="flex gap-6 items-start max-w-5xl mx-auto">
+<div class="flex-1 min-w-0 bg-white border rounded p-6">
   <h1 class="text-2xl font-bold mb-4">Sales (with Items)</h1>
   {% if form.non_field_errors or form.errors %}
   <div class="mb-4 p-3 rounded border border-red-400 bg-red-50 text-red-800 text-sm">
@@ -151,5 +152,13 @@
   </script>
 
   <p class="mt-4"><a href="{% url 'inventory:gateway' %}" class="text-slate-600 hover:underline">← Gateway</a></p>
+</div>
+<div class="flex-shrink-0 w-52">
+  <div class="bg-slate-50 border border-slate-200 rounded p-4 sticky top-4">
+    <p class="text-sm font-semibold text-slate-700 mb-2">Mode</p>
+    <p class="text-xs text-slate-500 mb-3">Enter ledger-only (no item table).</p>
+    <a href="{% url 'ledger:voucher_entry' 'SALES' %}" class="block w-full text-center px-3 py-2 rounded bg-slate-200 text-slate-800 hover:bg-slate-300 text-sm font-medium">Switch to Accounting mode</a>
+  </div>
+</div>
 </div>
 {% endblock %}

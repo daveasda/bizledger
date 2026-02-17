@@ -21,7 +21,7 @@ urlpatterns = [
     path("", include("reports.urls")),  # home + reports (/, /list/, /profit-and-loss/)
     path("admin/", admin.site.urls),
     path("accounts/", include("django.contrib.auth.urls")),
-    path("org/", include("org.urls")),
+    path("org/", include(("org.urls", "org"))),
     path("inventory/", include("inventory.urls")),
     path("billing/", include("billing.urls")),
     path("ledger/", include("ledger.urls")),
