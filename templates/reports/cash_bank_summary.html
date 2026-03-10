@@ -1,0 +1,61 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+
+<div class="bg-white border rounded p-4">
+  <div class="flex items-center justify-between mb-4 flex-wrap gap-4">
+    <div>
+      <div class="text-sm text-gray-500">Reports</div>
+      <div class="text-xl font-semibold">Cash/Bank Summary</div>
+      <div class="text-xs text-gray-500 mt-1">{{ business }}</div>
+      <div class="text-xs text-gray-600 mt-1">
+        {% if end_date %}for {{ end_date|date:"d-M-Y" }}{% else %}as at latest posted data{% endif %}
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'reports:reports_list' %}" class="px-3 py-2 rounded border bg-white hover:bg-gray-50 text-sm">← Reports</a>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse border">
+      <thead>
+        <tr class="bg-gray-100">
+          <th class="border p-2 text-left">Particulars</th>
+          <th class="border p-2 text-right">Closing Balance (Debit)</th>
+          <th class="border p-2 text-right">Closing Balance (Credit)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for section in sections %}
+        <tr class="border-t bg-slate-50/50">
+          <td class="border p-2 font-medium">{{ section.name }}</td>
+          <td class="border p-2 text-right font-mono">{{ section.group_dr|floatformat:2 }}</td>
+          <td class="border p-2 text-right font-mono">{{ section.group_cr|floatformat:2 }}</td>
+        </tr>
+        {% for ledger in section.ledgers %}
+        <tr>
+          <td class="border p-2 pl-6">{{ ledger.name }}</td>
+          <td class="border p-2 text-right font-mono">{{ ledger.closing_dr|floatformat:2 }}</td>
+          <td class="border p-2 text-right font-mono">{{ ledger.closing_cr|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+        {% empty %}
+        <tr>
+          <td colspan="3" class="border p-4 text-center text-gray-500">No Cash-in-hand or Bank Accounts groups found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if sections %}
+      <tfoot>
+        <tr class="border-t-2 border-gray-300 bg-slate-100 font-semibold">
+          <td class="border p-2">Grand Total</td>
+          <td class="border p-2 text-right font-mono">{{ grand_total_dr|floatformat:2 }}</td>
+          <td class="border p-2 text-right font-mono">{{ grand_total_cr|floatformat:2 }}</td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+{% endblock %}

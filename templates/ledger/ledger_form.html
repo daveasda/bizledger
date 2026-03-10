@@ -9,9 +9,9 @@
        class="px-4 py-2 border-b-2 border-green-600 font-semibold">
       Ledger
     </a>
-    <a href="{% url 'ledger:ledger_voucher_details' ledger.id %}"
+    <a href="{% url 'ledger:ledger_monthly_summary' ledger.id %}"
        class="px-4 py-2 border-b-2 border-transparent hover:border-gray-300">
-      Ledger Voucher Details
+      Ledger Monthly Summary
     </a>
   </div>
   {% endif %}
@@ -80,12 +80,7 @@
 
     <div>
       <label class="block text-sm font-semibold text-gray-800 mb-1">
-        Opening Balance
-        {% if form.opening_balance_date.value %}
-          (on {{ form.opening_balance_date.value|date:"d-M-Y" }})
-        {% else %}
-          (on <span id="opening-balance-date-display">-</span>)
-        {% endif %}
+        Opening Balance (on 01-Apr-2025)
       </label>
       <div class="flex gap-2">
         <div class="flex-1 bg-white border rounded">
@@ -94,10 +89,8 @@
         <div class="bg-white border rounded">
           {{ form.opening_balance_type }}
         </div>
-        <div class="bg-white border rounded">
-          {{ form.opening_balance_date }}
-        </div>
       </div>
+      {{ form.opening_balance_date.as_hidden }}
       {{ form.opening_balance.errors }}
       {{ form.opening_balance_type.errors }}
       {{ form.opening_balance_date.errors }}
@@ -183,30 +176,5 @@
   </form>
 </div>
 
-<script>
-  // Update opening balance date display when date changes
-  document.addEventListener('DOMContentLoaded', function() {
-    const dateInput = document.querySelector('#id_opening_balance_date');
-    const dateDisplay = document.getElementById('opening-balance-date-display');
-    
-    if (dateInput && dateDisplay) {
-      function updateDateDisplay() {
-        if (dateInput.value) {
-          const date = new Date(dateInput.value);
-          const day = date.getDate();
-          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-          const month = monthNames[date.getMonth()];
-          const year = date.getFullYear();
-          const suffix = ['th', 'st', 'nd', 'rd'][((day % 100) - 20) % 10] || ['th', 'st', 'nd', 'rd'][day % 10] || 'th';
-          dateDisplay.textContent = `${day}${suffix} ${month}, ${year}`;
-        } else {
-          dateDisplay.textContent = '-';
-        }
-      }
-      
-      dateInput.addEventListener('change', updateDateDisplay);
-      updateDateDisplay(); // Initial update
-    }
-  });
-</script>
+<!-- Opening balance date is fixed in label; no date picker needed -->
 {% endblock %}

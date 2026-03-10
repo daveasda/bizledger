@@ -19,6 +19,7 @@ urlpatterns = [
     path("accounts/ledgers/create/", views.ledger_create, name="ledger_create"),
     path("accounts/ledgers/display/", views.ledgers_display, name="ledgers_display"),
     path("accounts/ledgers/<int:pk>/alter/", views.ledger_alter, name="ledger_alter"),
+    path("accounts/ledgers/<int:pk>/monthly-summary/", views.ledger_monthly_summary, name="ledger_monthly_summary"),
     path("accounts/ledgers/<int:pk>/voucher-details/", views.ledger_voucher_details, name="ledger_voucher_details"),
     
     # Voucher Types

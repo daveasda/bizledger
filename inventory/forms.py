@@ -46,15 +46,13 @@ class StockGroupForm(forms.ModelForm):
 class UnitOfMeasureForm(forms.ModelForm):
     class Meta:
         model = UnitOfMeasure
-        fields = ["unit_type", "symbol", "formal_name", "decimal_places"]
+        fields = ["symbol", "formal_name", "decimal_places"]
         widgets = {
-            "unit_type": forms.Select(attrs={"class": "w-full px-3 py-2 border rounded"}),
             "symbol": forms.TextInput(attrs={"class": "w-full px-3 py-2 border rounded", "placeholder": ""}),
             "formal_name": forms.TextInput(attrs={"class": "w-full px-3 py-2 border rounded", "placeholder": ""}),
             "decimal_places": forms.NumberInput(attrs={"class": "w-full px-3 py-2 border rounded", "min": 0}),
         }
         labels = {
-            "unit_type": "Type",
             "symbol": "Symbol",
             "formal_name": "Formal name",
             "decimal_places": "Number of decimal places",
@@ -116,8 +114,10 @@ def get_standard_rate_formset(rate_type):
     return modelformset_factory(
         StandardRate,
         form=StandardRateForm,
-        extra=2,
-        can_delete=True,
+        extra=1,          # show at most one blank row
+        can_delete=True,  # allow deleting the existing row
+        max_num=1,        # enforce only one entry per type
+        validate_max=True,
     )
 
 

@@ -1,0 +1,66 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+
+<div class="bg-white border rounded p-4">
+  <div class="flex items-center justify-between mb-4 flex-wrap gap-4">
+    <div>
+      <div class="text-sm text-gray-500">Reports</div>
+      <div class="text-xl font-semibold">Day Book</div>
+      <div class="text-xs text-gray-500 mt-1">{{ business }}</div>
+    </div>
+    <div class="flex gap-2 flex-wrap items-center">
+      <div class="text-xs text-gray-600 mr-2">For {{ fiscal_start_date|date:"j-M-Y" }}</div>
+      <form method="get" action="{% url 'reports:day_book' %}" class="flex items-center gap-2">
+        <label for="date" class="text-sm text-gray-600">View date:</label>
+        <input type="date" name="date" id="date" value="{{ report_date|date:'Y-m-d' }}"
+               class="border rounded px-3 py-2 text-sm">
+        <button type="submit" class="px-3 py-2 rounded border bg-white hover:bg-gray-50 text-sm">Go</button>
+      </form>
+      <a href="{% url 'reports:reports_list' %}" class="px-3 py-2 rounded border bg-white hover:bg-gray-50 text-sm">← Reports</a>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse border">
+      <thead>
+        <tr class="bg-gray-100">
+          <th class="border p-2 text-left">Date</th>
+          <th class="border p-2 text-left">Particulars</th>
+          <th class="border p-2 text-left">Vch Type</th>
+          <th class="border p-2 text-left">Vch No.</th>
+          <th class="border p-2 text-right">Debit Amt. (Inwards Qty)</th>
+          <th class="border p-2 text-right">Credit Amt. (Outwards Qty)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in transactions %}
+        <tr>
+          <td class="border p-2">{{ t.date|date:"d-m-Y" }}</td>
+          <td class="border p-2">{{ t.particulars }}</td>
+          <td class="border p-2">{{ t.vch_type }}</td>
+          <td class="border p-2">
+            <a href="{% url 'ledger:voucher_detail' t.voucher_id %}" class="text-blue-600 hover:underline">{{ t.vch_no }}</a>
+          </td>
+          <td class="border p-2 text-right">{{ t.debit|floatformat:2 }}</td>
+          <td class="border p-2 text-right">{{ t.credit|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="border p-4 text-center text-gray-500">No transactions for this day.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if transactions %}
+      <tfoot>
+        <tr class="bg-gray-50 font-semibold border-t-2">
+          <td colspan="4" class="border p-2 text-right">Total</td>
+          <td class="border p-2 text-right">{{ total_dr|floatformat:2 }}</td>
+          <td class="border p-2 text-right">{{ total_cr|floatformat:2 }}</td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+{% endblock %}

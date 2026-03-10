@@ -5,6 +5,14 @@
   <p class="text-slate-500 text-sm mb-6">Select a report to view.</p>
 
   <div class="space-y-3">
+    <a href="{% url 'reports:day_book' %}" class="block p-4 rounded-lg border bg-white hover:bg-slate-50 hover:border-slate-300 transition">
+      <span class="font-medium">Day Book</span>
+      <p class="text-sm text-slate-500 mt-1">All transactions for a single day: Date, Particulars, Voucher Type, Voucher No, Debit and Credit amounts.</p>
+    </a>
+    <a href="{% url 'reports:cash_bank_summary' %}" class="block p-4 rounded-lg border bg-white hover:bg-slate-50 hover:border-slate-300 transition">
+      <span class="font-medium">Cash/Bank Summary</span>
+      <p class="text-sm text-slate-500 mt-1">Closing balance of Cash-in-hand and Bank Accounts groups with ledgers and Grand Total.</p>
+    </a>
     <a href="{% url 'reports:profit_and_loss' %}" class="block p-4 rounded-lg border bg-white hover:bg-slate-50 hover:border-slate-300 transition">
       <span class="font-medium">Profit and Loss A/C</span>
       <p class="text-sm text-slate-500 mt-1">Income vs expenses from posted vouchers (Tally-style).</p>

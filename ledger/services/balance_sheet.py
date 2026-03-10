@@ -1,13 +1,16 @@
 """
 Balance Sheet: Liabilities (left) and Assets (right) with group summary balances.
 Profit & Loss A/c row shows gross profit from P&L report.
+Current Assets total includes Closing Stock (inventory valuation).
 """
 from decimal import Decimal
 from collections import defaultdict
+from datetime import date
 
 from django.db.models import Sum
 
 from ledger.models import Account, VoucherLine
+from ledger.services.stock_valuation import closing_stock_value
 
 # Standard root group names (top-level buckets like Assets/Liabilities/etc.)
 # Primary groups like "Capital Account", "Loans (Liability)", "Current Liabilities"
@@ -115,7 +118,7 @@ def compute_balance_sheet(business, end_date=None):
         sign_for_display:
           -  1 = assets (debit balance positive)
           - -1 = liabilities (credit balance positive)
-        Each root_id is treated as one top-level row (e.g. Capital Account, Current Liabilities).
+        Returns list of {"name", "amount", "group_id"} for linking to Group Summary.
         """
         rows = []
         for root_id in sorted(root_ids, key=lambda i: (account_map.get(i) or {}).get("name") or ""):
@@ -126,13 +129,24 @@ def compute_balance_sheet(business, end_date=None):
             ledger_ids = _descendant_ledger_ids(root_id, children_map, account_map)
             total = sum(closing_by_ledger.get(lid, Decimal("0.00")) for lid in ledger_ids)
             total = (sign_for_display * total).quantize(Decimal("0.01"))
-            rows.append((name, total))
+            rows.append({"name": name, "amount": total, "group_id": root_id})
         return rows
 
     # Liabilities: credit balance is normal, so show as positive (multiply by -1)
     liability_rows = group_balances(liability_root_ids, sign_for_display=-1)
     # Assets: debit balance is normal (already positive)
     asset_rows = group_balances(asset_root_ids, sign_for_display=1)
+
+    # Current Assets: add Closing Stock (inventory valuation) so Balance Sheet matches Group Summary
+    as_of = end_date if end_date else date.today()
+    closing_stock = closing_stock_value(business, as_of, godown=None).quantize(Decimal("0.01"))
+    _asset_rows = []
+    for row in asset_rows:
+        name, amt = row["name"], row["amount"]
+        if name and (name.strip().lower() == "current assets"):
+            amt = (amt + closing_stock).quantize(Decimal("0.01"))
+        _asset_rows.append({"name": name, "amount": amt, "group_id": row["group_id"]})
+    asset_rows = _asset_rows
 
     # Gross profit from P&L (for Profit & Loss A/c row)
     pnl_data = compute_profit_and_loss(
@@ -144,8 +158,8 @@ def compute_balance_sheet(business, end_date=None):
     gross_profit = (pnl_data.get("gross_profit") or Decimal("0.00")).quantize(Decimal("0.01"))
 
     # Profit & Loss A/c row shows gross profit (positive = profit, negative = loss)
-    total_liabilities = sum(amt for _, amt in liability_rows) + gross_profit
-    total_assets = sum(amt for _, amt in asset_rows)
+    total_liabilities = sum(r["amount"] for r in liability_rows) + gross_profit
+    total_assets = sum(r["amount"] for r in asset_rows)
 
     return {
         "liability_rows": liability_rows,

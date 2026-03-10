@@ -101,7 +101,12 @@ def stock_groups_display(request):
     business, redirect_response = _get_business_or_redirect(request)
     if redirect_response:
         return redirect_response
-    groups = StockGroup.objects.filter(business=business).order_by("name")
+    # Show groups in a hierarchical way: top (parent=None) -> sub-groups.
+    groups = (
+        StockGroup.objects.filter(business=business, parent__isnull=True)
+        .prefetch_related("children")
+        .order_by("name")
+    )
     return render(request, "inventory/stock_groups_display.html", {
         "business": business,
         "groups": groups,
@@ -189,10 +194,18 @@ def stock_items_display(request):
     business, redirect_response = _get_business_or_redirect(request)
     if redirect_response:
         return redirect_response
-    items = Item.objects.filter(business=business).order_by("sku")
+    # Show items grouped under their stock groups (top-level + sub-groups).
+    groups = (
+        StockGroup.objects.filter(business=business, parent__isnull=True)
+        .prefetch_related("items", "children__items")
+        .order_by("name")
+    )
+    # Items without any stock group (Primary)
+    ungrouped_items = Item.objects.filter(business=business, stock_group__isnull=True).order_by("sku")
     return render(request, "inventory/stock_items_display.html", {
         "business": business,
-        "items": items,
+        "groups": groups,
+        "ungrouped_items": ungrouped_items,
     })
 
 

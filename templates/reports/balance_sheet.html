@@ -21,18 +21,16 @@
     <div class="border rounded p-4 bg-slate-50/50">
       <div class="font-semibold mb-2 text-slate-800">Liabilities</div>
       <table class="w-full text-sm">
-        {% for name, amt in liability_rows %}
+        {% for row in liability_rows %}
         <tr class="border-b border-slate-200">
-          <td class="py-2">{{ name }}</td>
-          <td class="py-2 text-right font-mono">{{ amt|floatformat:2 }}</td>
+          <td class="py-2">
+            <a href="{{ row.link_url }}" class="text-blue-600 hover:underline">{{ row.name }}</a>
+          </td>
+          <td class="py-2 text-right font-mono">{{ row.amount|floatformat:2 }}</td>
         </tr>
         {% empty %}
         <tr class="border-b border-slate-200"><td class="py-2 text-slate-500">—</td><td class="py-2 text-right"></td></tr>
         {% endfor %}
-        <tr class="border-b border-slate-200">
-          <td class="py-2">Profit & Loss A/c</td>
-          <td class="py-2 text-right font-mono">{{ gross_profit|floatformat:2 }}</td>
-        </tr>
         <tr class="border-t-2 border-slate-300 font-semibold mt-2">
           <td class="pt-3">Total</td>
           <td class="pt-3 text-right font-mono">{{ total_liabilities|floatformat:2 }}</td>
@@ -44,10 +42,12 @@
     <div class="border rounded p-4 bg-slate-50/50">
       <div class="font-semibold mb-2 text-slate-800">Assets</div>
       <table class="w-full text-sm">
-        {% for name, amt in asset_rows %}
+        {% for row in asset_rows %}
         <tr class="border-b border-slate-200">
-          <td class="py-2">{{ name }}</td>
-          <td class="py-2 text-right font-mono">{{ amt|floatformat:2 }}</td>
+          <td class="py-2">
+            <a href="{{ row.link_url }}" class="text-blue-600 hover:underline">{{ row.name }}</a>
+          </td>
+          <td class="py-2 text-right font-mono">{{ row.amount|floatformat:2 }}</td>
         </tr>
         {% empty %}
         <tr class="border-b border-slate-200"><td class="py-2 text-slate-500">—</td><td class="py-2 text-right"></td></tr>

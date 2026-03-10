@@ -45,25 +45,22 @@
           <td class="py-2"><a href="{% url 'inventory:stock_summary' %}{{ stock_summary_query }}" class="text-blue-600 hover:underline">Opening Stock</a></td>
           <td class="py-2 text-right font-mono">{{ opening_stock_value|floatformat:2 }}</td>
         </tr>
-        {% for name, amt in purchases %}
-        <tr class="border-b border-slate-200">
-          <td class="py-2">{{ name }}</td>
-          <td class="py-2 text-right font-mono">{{ amt|floatformat:2 }}</td>
-        </tr>
-        {% empty %}
-        {% endfor %}
-        {% if purchases %}
+        {% if purchase_total %}
         <tr class="border-b border-slate-300 font-medium">
           <td class="py-1 text-slate-600">Purchase Accounts</td>
           <td class="py-1 text-right font-mono">{{ purchase_total|floatformat:2 }}</td>
         </tr>
         {% endif %}
-        {% for name, amt in indirect_expense %}
-        <tr class="border-b border-slate-200">
-          <td class="py-2">{{ name }}</td>
-          <td class="py-2 text-right font-mono">{{ amt|floatformat:2 }}</td>
+        <tr class="border-b border-slate-300 font-semibold">
+          <td class="py-2">Gross Profit c/o</td>
+          <td class="py-2 text-right font-mono">{{ gross_profit|floatformat:2 }}</td>
         </tr>
-        {% endfor %}
+        {% if indirect_expense_total %}
+        <tr class="border-b border-slate-200">
+          <td class="py-2">Indirect Expenses</td>
+          <td class="py-2 text-right font-mono">{{ indirect_expense_total|floatformat:2 }}</td>
+        </tr>
+        {% endif %}
         <tr class="border-t-2 border-slate-300 font-semibold mt-2">
           <td class="pt-3">Nett Profit</td>
           <td class="pt-3 text-right font-mono">{{ net_profit|floatformat:2 }}</td>
@@ -79,23 +76,21 @@
     <div class="border rounded p-4 bg-slate-50/50">
       <div class="font-semibold mb-2 text-slate-800">Particulars (Credit)</div>
       <table class="w-full text-sm">
-        {% for name, amt in sales %}
-        <tr class="border-b border-slate-200">
-          <td class="py-2">{{ name }}</td>
-          <td class="py-2 text-right font-mono">{{ amt|floatformat:2 }}</td>
-        </tr>
-        {% empty %}
-        <tr><td class="py-2 text-slate-500">No sales</td><td class="py-2 text-right"></td></tr>
-        {% endfor %}
-        {% if sales %}
+        {% if sales_total %}
         <tr class="border-b border-slate-300 font-medium">
           <td class="py-1 text-slate-600">Sales Accounts</td>
           <td class="py-1 text-right font-mono">{{ sales_total|floatformat:2 }}</td>
         </tr>
+        {% else %}
+        <tr><td class="py-2 text-slate-500">No sales</td><td class="py-2 text-right"></td></tr>
         {% endif %}
         <tr class="border-b border-slate-200">
           <td class="py-2"><a href="{% url 'inventory:stock_summary' %}{{ stock_summary_query }}" class="text-blue-600 hover:underline">Closing Stock</a></td>
           <td class="py-2 text-right font-mono">{{ closing_stock_value|floatformat:2 }}</td>
+        </tr>
+        <tr class="border-b border-slate-300 font-semibold">
+          <td class="py-2">Gross Profit b/f</td>
+          <td class="py-2 text-right font-mono">{{ gross_profit|floatformat:2 }}</td>
         </tr>
         <tr class="border-t-2 border-slate-300 font-semibold mt-2">
           <td class="pt-3">Total (Credit)</td>
@@ -111,15 +106,14 @@
   </div>
   {% endif %}
 
-  {# Net Profit = Gross Profit − Indirect Expenses + Other Income #}
   <div class="mt-6 pt-4 border-t-2 flex flex-wrap items-center justify-between gap-4">
     {% if other_income %}
     <div class="text-sm text-slate-600">
       Other Income: {% for name, amt in other_income %}{{ name }} {{ amt|floatformat:2 }}{% if not forloop.last %}; {% endif %}{% endfor %} (total {{ other_income_total|floatformat:2 }})
     </div>
     {% endif %}
-    <div class="text-lg font-semibold {% if net_profit >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
-      Net Profit (Gross Profit − Indirect Expenses + Other Income): {{ net_profit|floatformat:2 }}
+    <div class="text-lg font-semibold {% if gross_profit >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
+      Gross Profit: {{ gross_profit|floatformat:2 }}
     </div>
   </div>
 

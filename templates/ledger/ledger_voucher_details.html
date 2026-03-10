@@ -2,16 +2,20 @@
 {% block ledger_content %}
 <div class="bg-white border rounded p-6 max-w-5xl mx-auto">
   <div class="bg-green-600 text-white px-4 py-2 mb-4 font-semibold text-center rounded">
-    Ledger Vouchers — Ledger: {{ ledger.name }}
+    Ledger Vouchers — Ledger: {{ ledger.name }}{% if month_label %} ({{ month_label }}){% endif %}
   </div>
 
-  <!-- Tabs: Ledger | Ledger Voucher Details -->
+  <!-- Tabs: Ledger | Monthly Summary | Ledger Voucher Details -->
   <div class="flex border-b mb-4">
     <a href="{% url 'ledger:ledger_alter' ledger.id %}"
        class="px-4 py-2 border-b-2 border-transparent hover:border-gray-300">
       Ledger
     </a>
-    <a href="{% url 'ledger:ledger_voucher_details' ledger.id %}"
+    <a href="{% url 'ledger:ledger_monthly_summary' ledger.id %}"
+       class="px-4 py-2 border-b-2 border-transparent hover:border-gray-300">
+      Ledger Monthly Summary
+    </a>
+    <a href="{% url 'ledger:ledger_voucher_details' ledger.id %}{% if month_filter %}?year={{ month_filter.year }}&month={{ month_filter.month }}{% endif %}"
        class="px-4 py-2 border-b-2 border-green-600 font-semibold">
       Ledger Voucher Details
     </a>
@@ -58,7 +62,7 @@
   </div>
 
   <div class="mt-4">
-    <a href="{% url 'ledger:ledger_alter' ledger.id %}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Back to Ledger</a>
+    <a href="{% url 'ledger:ledger_monthly_summary' ledger.id %}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Back to Ledger Monthly Summary</a>
     <a href="{% url 'ledger:ledgers_display' %}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 ml-2">Ledgers Display</a>
   </div>
 </div>

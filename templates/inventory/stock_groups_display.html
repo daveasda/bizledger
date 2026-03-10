@@ -7,14 +7,33 @@
       <div class="text-sm text-gray-600 mb-1">Name of Stock Group</div>
       <div class="h-8 border-b"></div>
     </div>
-    <div class="bg-white border rounded max-h-96 overflow-y-auto">
-      {% for group in groups %}
-      <a href="{% url 'inventory:stock_group_alter' group.pk %}" class="block px-2 py-1 hover:bg-slate-100 {% if forloop.first %}bg-slate-200{% endif %}">
-        {{ group.name }}{% if group.alias %} ({{ group.alias }}){% endif %}
-      </a>
-      {% empty %}
-      <div class="px-2 py-1 text-gray-600">No stock groups found. Create one to get started.</div>
-      {% endfor %}
+    <div class="bg-white border rounded max-h-96 overflow-y-auto divide-y">
+      {% if groups %}
+        {% for group in groups %}
+        <div class="px-2 py-1">
+          <details {% if forloop.first %}open{% endif %} class="group">
+            <summary class="cursor-pointer px-2 py-1 rounded bg-slate-200 hover:bg-slate-300 flex items-center justify-between">
+              <span>
+                {{ group.name }}{% if group.alias %} ({{ group.alias }}){% endif %}
+              </span>
+              <span class="text-xs text-gray-600 ml-2 group-open:hidden">▼</span>
+              <span class="text-xs text-gray-600 ml-2 hidden group-open:inline">▲</span>
+            </summary>
+            {% if group.children.all %}
+            <div class="mt-1 ml-4 border-l pl-3 space-y-0.5">
+              {% for child in group.children.all %}
+              <a href="{% url 'inventory:stock_group_alter' child.pk %}" class="block px-2 py-1 rounded hover:bg-slate-100">
+                {{ child.name }}{% if child.alias %} ({{ child.alias }}){% endif %}
+              </a>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </details>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="px-2 py-1 text-gray-600">No stock groups found. Create one to get started.</div>
+      {% endif %}
     </div>
   </div>
 

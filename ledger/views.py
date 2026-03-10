@@ -1,3 +1,6 @@
+import calendar
+from collections import defaultdict
+from datetime import date, timedelta
 from decimal import Decimal
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -164,17 +167,43 @@ def group_alter(request, pk: int):
     })
 
 
+def _descendant_ledger_ids(group_id, children_map, account_map):
+    """Return set of ledger IDs that are descendants of the given group."""
+    ids = set()
+    for child_id in children_map.get(group_id, []):
+        acc = account_map.get(child_id)
+        if not acc:
+            continue
+        if acc.get("is_group"):
+            ids |= _descendant_ledger_ids(child_id, children_map, account_map)
+        else:
+            ids.add(child_id)
+    return ids
+
+
 def group_summary(request, pk: int):
-    """Group Summary: all ledgers under this group with closing Debit/Credit balances and grand total."""
+    """Group Summary: direct children (sub-groups and ledgers) as rows with closing Dr/Cr. Sub-groups link to their summary; ledgers to voucher details. For Current Assets, first row is Closing Stock → Stock Summary."""
     business, redirect_response = _get_business_or_redirect(request)
     if redirect_response:
         return redirect_response
     group = get_object_or_404(Account, pk=pk, business=business, is_group=True)
-    ledgers = Account.objects.filter(parent=group, business=business, is_group=False).order_by("name")
-    # Aggregate posted voucher lines per ledger: account_id -> (total_dr, total_cr)
+
+    # Build tree for entire business
+    accounts = Account.objects.filter(business=business).values("id", "parent_id", "name", "is_group")
+    children_map = defaultdict(list)
+    account_map = {}
+    for a in accounts:
+        children_map[a["parent_id"]].append(a["id"])
+        account_map[a["id"]] = a
+
+    # All ledgers under this group (for aggregation)
+    all_ledger_ids = _descendant_ledger_ids(group.id, children_map, account_map)
+    ledgers_list = list(Account.objects.filter(id__in=all_ledger_ids)) if all_ledger_ids else []
+
+    # Aggregate posted voucher lines for those ledgers
     agg_qs = (
         VoucherLine.objects.filter(
-            account__in=ledgers,
+            account_id__in=all_ledger_ids,
             voucher__business=business,
             voucher__is_posted=True,
         )
@@ -188,10 +217,10 @@ def group_summary(request, pk: int):
         )
         for r in agg_qs
     }
-    rows = []
-    grand_dr = Decimal("0.00")
-    grand_cr = Decimal("0.00")
-    for ledger in ledgers:
+
+    # Closing balance (dr, cr) per ledger
+    closing_by_ledger = {}
+    for ledger in ledgers_list:
         op_bal = ledger.opening_balance or Decimal("0.00")
         op_type = ledger.opening_balance_type or "DR"
         opening_net = -op_bal if op_type == "CR" else op_bal
@@ -199,19 +228,62 @@ def group_summary(request, pk: int):
         closing_net = opening_net + total_dr - total_cr
         closing_dr = closing_net if closing_net > 0 else Decimal("0.00")
         closing_cr = -closing_net if closing_net < 0 else Decimal("0.00")
+        closing_by_ledger[ledger.id] = (closing_dr, closing_cr)
+
+    # Direct children (sub-groups and ledgers) in name order
+    direct_children = Account.objects.filter(parent=group, business=business).order_by("name")
+
+    rows = []
+    grand_dr = Decimal("0.00")
+    grand_cr = Decimal("0.00")
+
+    # Current Assets: first row = Closing Stock → Stock Summary
+    if group.name and group.name.strip().lower() == "current assets":
+        try:
+            from datetime import date
+            from ledger.services.stock_valuation import closing_stock_value
+            stock_val = closing_stock_value(business, date.today(), godown=None).quantize(Decimal("0.01"))
+        except Exception:
+            stock_val = Decimal("0.00")
         rows.append({
-            "ledger": ledger,
-            "closing_dr": closing_dr,
-            "closing_cr": closing_cr,
+            "row_type": "closing_stock",
+            "name": "Closing Stock",
+            "closing_dr": stock_val,
+            "closing_cr": Decimal("0.00"),
+            "link_url": reverse("inventory:stock_summary"),
         })
-        grand_dr += closing_dr
-        grand_cr += closing_cr
+        grand_dr += stock_val
+
+    for child in direct_children:
+        if child.is_group:
+            desc_ids = _descendant_ledger_ids(child.id, children_map, account_map)
+            dr = sum(closing_by_ledger.get(lid, (Decimal("0.00"), Decimal("0.00")))[0] for lid in desc_ids)
+            cr = sum(closing_by_ledger.get(lid, (Decimal("0.00"), Decimal("0.00")))[1] for lid in desc_ids)
+            rows.append({
+                "row_type": "group",
+                "name": child.name,
+                "closing_dr": dr.quantize(Decimal("0.01")),
+                "closing_cr": cr.quantize(Decimal("0.01")),
+                "link_url": reverse("ledger:group_summary", args=[child.id]),
+            })
+        else:
+            dr, cr = closing_by_ledger.get(child.id, (Decimal("0.00"), Decimal("0.00")))
+            rows.append({
+                "row_type": "ledger",
+                "name": child.name,
+                "closing_dr": dr,
+                "closing_cr": cr,
+                "link_url": reverse("ledger:ledger_monthly_summary", args=[child.id]),
+            })
+        grand_dr += rows[-1]["closing_dr"]
+        grand_cr += rows[-1]["closing_cr"]
+
     return render(request, "ledger/group_summary.html", {
         "business": business,
         "group": group,
         "rows": rows,
-        "grand_total_dr": grand_dr,
-        "grand_total_cr": grand_cr,
+        "grand_total_dr": grand_dr.quantize(Decimal("0.01")),
+        "grand_total_cr": grand_cr.quantize(Decimal("0.01")),
     })
 
 
@@ -323,21 +395,134 @@ def ledger_alter(request, pk: int):
     })
 
 
-def ledger_voucher_details(request, pk: int):
-    """Ledger Voucher Details - all transactions for a ledger with balance totals."""
+def _ledger_balance_before(ledger, business, before_date: date):
+    """Net balance (Dr positive) for ledger from opening + all posted lines with posting_date < before_date."""
+    op_bal = ledger.opening_balance or Decimal("0.00")
+    op_type = ledger.opening_balance_type or "DR"
+    opening_net = -op_bal if op_type == "CR" else op_bal
+    agg = (
+        VoucherLine.objects.filter(
+            account=ledger,
+            voucher__business=business,
+            voucher__is_posted=True,
+            voucher__posting_date__lt=before_date,
+        )
+        .aggregate(dr=Sum("debit", default=Decimal("0")), cr=Sum("credit", default=Decimal("0")))
+    )
+    dr = agg["dr"] or Decimal("0.00")
+    cr = agg["cr"] or Decimal("0.00")
+    return (opening_net + dr - cr).quantize(Decimal("0.01"))
+
+
+def ledger_monthly_summary(request, pk: int):
+    """Ledger Monthly Summary: one row per month with Opening, Debit, Credit, Closing. Month rows link to voucher details for that month."""
     business, redirect_response = _get_business_or_redirect(request)
     if redirect_response:
         return redirect_response
 
     ledger = get_object_or_404(Account, pk=pk, business=business, is_group=False)
 
-    # All posted voucher lines for this ledger, ordered by date
-    lines = (
+    # Distinct (year, month) from posted lines for this ledger
+    from django.db.models.functions import ExtractMonth, ExtractYear
+    months_qs = (
         VoucherLine.objects.filter(
             account=ledger,
             voucher__business=business,
             voucher__is_posted=True,
         )
+        .annotate(year=ExtractYear("voucher__posting_date"), month=ExtractMonth("voucher__posting_date"))
+        .values_list("year", "month")
+        .distinct()
+    )
+    month_set = set(months_qs)
+    today = date.today()
+    month_set.add((today.year, today.month))
+    months_sorted = sorted(month_set)
+
+    MONTH_NAMES = ["", "January", "February", "March", "April", "May", "June",
+                   "July", "August", "September", "October", "November", "December"]
+
+    rows = []
+    for year, month in months_sorted:
+        first_day = date(year, month, 1)
+        last_day = date(year, month, calendar.monthrange(year, month)[1])
+
+        opening_net = _ledger_balance_before(ledger, business, first_day)
+        # Sum dr/cr in this month
+        agg = (
+            VoucherLine.objects.filter(
+                account=ledger,
+                voucher__business=business,
+                voucher__is_posted=True,
+                voucher__posting_date__gte=first_day,
+                voucher__posting_date__lte=last_day,
+            )
+            .aggregate(dr=Sum("debit", default=Decimal("0")), cr=Sum("credit", default=Decimal("0")))
+        )
+        total_dr = (agg["dr"] or Decimal("0.00")).quantize(Decimal("0.01"))
+        total_cr = (agg["cr"] or Decimal("0.00")).quantize(Decimal("0.01"))
+        closing_net = (opening_net + total_dr - total_cr).quantize(Decimal("0.01"))
+
+        month_name = MONTH_NAMES[month] if 1 <= month <= 12 else str(month)
+        link_url = reverse("ledger:ledger_voucher_details", args=[ledger.id]) + f"?year={year}&month={month}"
+        opening_display = f"{opening_net:.2f} Dr" if opening_net >= 0 else f"{-opening_net:.2f} Cr"
+        closing_display = f"{closing_net:.2f} Dr" if closing_net >= 0 else f"{-closing_net:.2f} Cr"
+
+        rows.append({
+            "year": year,
+            "month": month,
+            "month_label": f"{month_name} {year}",
+            "opening_net": opening_net,
+            "total_dr": total_dr,
+            "total_cr": total_cr,
+            "closing_net": closing_net,
+            "opening_display": opening_display,
+            "closing_display": closing_display,
+            "link_url": link_url,
+        })
+
+    return render(request, "ledger/ledger_monthly_summary.html", {
+        "business": business,
+        "ledger": ledger,
+        "rows": rows,
+    })
+
+
+def ledger_voucher_details(request, pk: int):
+    """Ledger Voucher Details - all transactions for a ledger, optionally filtered to a single month (year, month in GET)."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+
+    ledger = get_object_or_404(Account, pk=pk, business=business, is_group=False)
+
+    # Optional month filter from GET (e.g. from Ledger Monthly Summary)
+    filter_year = request.GET.get("year")
+    filter_month = request.GET.get("month")
+    month_filter = None
+    if filter_year and filter_month:
+        try:
+            y, m = int(filter_year), int(filter_month)
+            if 1 <= m <= 12:
+                month_filter = date(y, m, 1)
+        except (ValueError, TypeError):
+            pass
+
+    base_qs = VoucherLine.objects.filter(
+        account=ledger,
+        voucher__business=business,
+        voucher__is_posted=True,
+    )
+    if month_filter:
+        last_day = date(month_filter.year, month_filter.month, calendar.monthrange(month_filter.year, month_filter.month)[1])
+        base_qs = base_qs.filter(
+            voucher__posting_date__gte=month_filter,
+            voucher__posting_date__lte=last_day,
+        )
+
+    # All posted voucher lines for this ledger (possibly for one month), ordered by date
+    lines = (
+        base_qs
         .select_related("voucher")
         .prefetch_related(
             Prefetch("voucher__lines", queryset=VoucherLine.objects.select_related("account"))
@@ -345,16 +530,20 @@ def ledger_voucher_details(request, pk: int):
         .order_by("voucher__posting_date", "voucher__id", "id")
     )
 
+    # Opening: full ledger opening, or when month filter use balance at start of that month
+    if month_filter:
+        opening_net = _ledger_balance_before(ledger, business, month_filter)
+    else:
+        opening_net = Decimal("0.00")
+        op_bal = ledger.opening_balance or Decimal("0.00")
+        op_type = ledger.opening_balance_type or "DR"
+        if op_type == "CR":
+            opening_net = -op_bal
+        else:
+            opening_net = op_bal
+
     # Build transaction rows: Date, Particulars, Vch Type, Vch No., Debit, Credit
     transactions = []
-    opening_net = Decimal("0.00")
-    op_bal = ledger.opening_balance or Decimal("0.00")
-    op_type = ledger.opening_balance_type or "DR"
-    if op_type == "CR":
-        opening_net = -op_bal
-    else:
-        opening_net = op_bal
-
     running = opening_net
     for line in lines:
         running += line.debit - line.credit
@@ -391,6 +580,13 @@ def ledger_voucher_details(request, pk: int):
     opening_amt, opening_drcr = _format_drcr(opening_net)
     closing_amt, closing_drcr = _format_drcr(closing_net)
 
+    month_label = None
+    if month_filter:
+        MONTH_NAMES = ["", "January", "February", "March", "April", "May", "June",
+                       "July", "August", "September", "October", "November", "December"]
+        m = month_filter.month
+        month_label = f"{MONTH_NAMES[m] if 1 <= m <= 12 else m} {month_filter.year}"
+
     return render(request, "ledger/ledger_voucher_details.html", {
         "business": business,
         "ledger": ledger,
@@ -401,6 +597,8 @@ def ledger_voucher_details(request, pk: int):
         "closing_drcr": closing_drcr,
         "total_dr": total_dr,
         "total_cr": total_cr,
+        "month_filter": month_filter,
+        "month_label": month_label,
     })
 
 

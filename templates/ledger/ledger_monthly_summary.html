@@ -1,0 +1,42 @@
+{% extends "ledger/base_ledger.html" %}
+{% block ledger_content %}
+<div class="bg-white border rounded p-6 max-w-5xl mx-auto">
+  <div class="bg-green-600 text-white px-4 py-2 mb-4 font-semibold text-center rounded">
+    Ledger Monthly Summary — {{ ledger.name }}
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full border-collapse border">
+      <thead>
+        <tr class="bg-gray-100">
+          <th class="border p-2 text-left">Particulars</th>
+          <th class="border p-2 text-right">Transactions (Debit)</th>
+          <th class="border p-2 text-right">Transactions (Credit)</th>
+          <th class="border p-2 text-right">Closing Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="border-t hover:bg-gray-50">
+          <td class="border p-2">
+            <a href="{{ row.link_url }}" class="text-blue-600 hover:underline">{{ row.month_label }}</a>
+          </td>
+          <td class="border p-2 text-right font-mono">{{ row.total_dr|floatformat:2 }}</td>
+          <td class="border p-2 text-right font-mono">{{ row.total_cr|floatformat:2 }}</td>
+          <td class="border p-2 text-right font-mono">{{ row.closing_display }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" class="border p-4 text-center text-gray-500">No months yet. Activity will appear here by month.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-4">
+    <a href="{% url 'ledger:ledgers_display' %}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Ledgers Display</a>
+    <a href="{% url 'ledger:groups_display' %}" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 ml-2">Groups Display</a>
+  </div>
+</div>
+{% endblock %}
