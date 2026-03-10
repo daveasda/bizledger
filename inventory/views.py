@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 from django.db import IntegrityError
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.core.exceptions import ValidationError
 
 from .forms import (
@@ -194,18 +194,37 @@ def stock_items_display(request):
     business, redirect_response = _get_business_or_redirect(request)
     if redirect_response:
         return redirect_response
-    # Show items grouped under their stock groups (top-level + sub-groups).
-    groups = (
-        StockGroup.objects.filter(business=business, parent__isnull=True)
-        .prefetch_related("items", "children__items")
-        .order_by("name")
-    )
-    # Items without any stock group (Primary)
-    ungrouped_items = Item.objects.filter(business=business, stock_group__isnull=True).order_by("sku")
+    search_query = (request.GET.get("q") or "").strip()
+
+    search_results = None
+    # When searching, find items by code (sku), description/alias, or part number/name
+    if search_query:
+        search_results = (
+            Item.objects.filter(business=business)
+            .filter(
+                Q(sku__icontains=search_query)
+                | Q(alias__icontains=search_query)
+                | Q(name__icontains=search_query)
+            )
+            .order_by("sku")
+        )
+        groups = ()
+        ungrouped_items = ()
+    else:
+        # Show items grouped under their stock groups (top-level + sub-groups).
+        groups = (
+            StockGroup.objects.filter(business=business, parent__isnull=True)
+            .prefetch_related("items", "children__items")
+            .order_by("name")
+        )
+        # Items without any stock group (Primary)
+        ungrouped_items = Item.objects.filter(business=business, stock_group__isnull=True).order_by("sku")
     return render(request, "inventory/stock_items_display.html", {
         "business": business,
         "groups": groups,
         "ungrouped_items": ungrouped_items,
+        "search_query": search_query,
+        "search_results": search_results,
     })
 
 

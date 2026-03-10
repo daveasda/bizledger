@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1 class="text-2xl font-semibold mb-6">Dashboard</h1>
+<div class="flex items-center justify-between mb-6 flex-wrap gap-2">
+  <h1 class="text-2xl font-semibold">Dashboard</h1>
+  <div class="text-base md:text-lg text-slate-700 bg-white rounded-full px-4 py-1.5 shadow border font-semibold">
+    {{ now|date:"d-M-Y" }} &middot; {{ now|time:"H:i" }}
+  </div>
+</div>
 
 <!-- Accounting Features -->
 <div class="bg-white rounded-xl shadow p-6 mb-6">

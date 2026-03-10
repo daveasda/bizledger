@@ -64,6 +64,43 @@ class UnitOfMeasureForm(forms.ModelForm):
 
 
 class StockItemForm(forms.ModelForm):
+    # Opening balance-style extra fields (quantity, rate, per, value)
+    opening_qty = forms.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        required=False,
+        label="Opening Qty",
+        widget=forms.NumberInput(
+            attrs={"class": "w-full px-3 py-2 border rounded", "step": "0.001"}
+        ),
+    )
+    opening_rate = forms.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+        label="Opening Rate",
+        widget=forms.NumberInput(
+            attrs={"class": "w-full px-3 py-2 border rounded", "step": "0.01"}
+        ),
+    )
+    opening_value = forms.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        required=False,
+        label="Opening Value",
+        widget=forms.NumberInput(
+            attrs={"class": "w-full px-3 py-2 border rounded", "step": "0.01"}
+        ),
+    )
+    opening_per = forms.CharField(
+        max_length=32,
+        required=False,
+        label="Opening per",
+        widget=forms.TextInput(
+            attrs={"class": "w-full px-3 py-2 border rounded", "placeholder": "Nos"}
+        ),
+    )
+
     class Meta:
         model = Item
         fields = ["sku", "alias", "stock_group", "unit", "reorder_level"]

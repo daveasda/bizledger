@@ -4,11 +4,28 @@
   <div class="md:col-span-2 bg-white border rounded p-4">
     <div class="bg-slate-600 text-white px-3 py-2 mb-2 font-semibold">List of Stock Items</div>
     <div class="bg-white border rounded p-2 mb-2">
-      <div class="text-sm text-gray-600 mb-1">Name of Stock Item</div>
-      <div class="h-8 border-b"></div>
+      <form method="get" action="{% url 'inventory:stock_items_display' %}" class="flex items-center gap-2">
+        <label for="q" class="text-sm text-gray-600 whitespace-nowrap">Search item:</label>
+        <input id="q" name="q" type="text" value="{{ search_query }}" placeholder="Item code, description, part number"
+               class="flex-1 px-3 py-1.5 border rounded text-sm" />
+        <button type="submit" class="px-3 py-1.5 bg-slate-700 text-white rounded text-sm hover:bg-slate-800">Search</button>
+        {% if search_query %}
+        <a href="{% url 'inventory:stock_items_display' %}" class="px-3 py-1.5 border rounded text-sm text-gray-700 hover:bg-gray-50">Clear</a>
+        {% endif %}
+      </form>
     </div>
     <div class="bg-white border rounded max-h-96 overflow-y-auto divide-y">
-      {% if groups or ungrouped_items %}
+      {% if search_query %}
+        {% if search_results %}
+          {% for item in search_results %}
+          <a href="{% url 'inventory:standard_rates' item.pk %}" class="block px-2 py-1 hover:bg-slate-100">
+            {{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}
+          </a>
+          {% endfor %}
+        {% else %}
+          <div class="px-2 py-2 text-gray-600 text-sm">No items matched "{{ search_query }}".</div>
+        {% endif %}
+      {% elif groups or ungrouped_items %}
         {% if ungrouped_items %}
         <div class="px-2 py-1">
           <details open class="group">

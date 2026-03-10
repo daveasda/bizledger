@@ -1,5 +1,6 @@
 from decimal import Decimal
 from datetime import date
+from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -38,6 +39,9 @@ def home(request):
     sales_group = Account.objects.filter(business=business, is_group=True, name="Sales").first()
     purchase_group = Account.objects.filter(business=business, is_group=True, name="Purchase").first()
 
+    # Current local datetime for dashboard display (uses Django TIME_ZONE setting)
+    now_local = timezone.localtime(timezone.now())
+
     try:
         from inventory.models import StockGroup, Item, UnitOfMeasure
         groups = StockGroup.objects.filter(business=business).order_by("name")
@@ -56,6 +60,7 @@ def home(request):
         "groups": groups,
         "items": items,
         "units": units,
+        "now": now_local,
     })
 
 
