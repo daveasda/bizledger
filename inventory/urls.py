@@ -1,11 +1,11 @@
-from django.urls import path
+from django.urls import path, reverse_lazy
+from django.views.generic import RedirectView
 from . import views
 
 app_name = "inventory"
 
 urlpatterns = [
-    path("", views.gateway, name="gateway"),
-    path("balance/", views.balance_view, name="balance"),
+    path("", RedirectView.as_view(url=reverse_lazy("reports:home")), name="gateway"),
     # Tally-style: Masters, Vouchers, Reports
     path("items/", views.items_list, name="items_list"),
     path("items/new/", views.item_create, name="item_create"),

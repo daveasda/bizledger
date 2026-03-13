@@ -698,7 +698,7 @@ def voucher_entry(request, vtype: str):
     vtype = (vtype or "").upper().strip()
     if vtype not in ("RECEIPT", "PAYMENT", "CONTRA", "SALES", "PURCHASE"):
         messages.error(request, "Only Receipt, Payment, Contra, Sales and Purchase are enabled.")
-        return redirect("ledger:voucher_list")
+        return redirect("ledger:accounts_gateway")
 
     voucher = Voucher(business=business, voucher_type=vtype)
     header_form = VoucherEntryHeaderForm(request.POST or None, instance=voucher, business=business)
@@ -950,7 +950,7 @@ def voucher_delete(request, pk: int):
         messages.success(request, f"Voucher {v.number} deleted.")
     except Exception as e:
         messages.error(request, f"Could not delete voucher: {e}")
-    return redirect("ledger:voucher_list")
+    return redirect("ledger:accounts_gateway")
 
 
 @require_http_methods(["POST"])
@@ -962,7 +962,7 @@ def install_coa(request):
     # Don't overwrite if accounts exist
     if Account.objects.filter(business=business).exists():
         messages.error(request, "Accounts already exist for this business.")
-        return redirect("ledger:gateway")
+        return redirect("ledger:accounts_gateway")
 
     # Minimal "Tally-ish" COA starter
     coa = {

@@ -592,6 +592,7 @@ def stock_summary(request):
             "qty_in": total_in,
             "qty_out": total_out,
             "balance": balance,
+            "rate": purchase_rate,
             "closing_stock_value": closing_value,
         })
 

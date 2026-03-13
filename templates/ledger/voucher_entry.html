@@ -1,11 +1,21 @@
 {% extends "ledger/base_ledger.html" %}
 {% block ledger_content %}
 <div class="flex gap-6 items-start">
-<div class="flex-1 min-w-0 bg-white border rounded p-4">
-  <div class="flex items-center justify-between">
+<div class="flex-1 min-w-0 bg-white border rounded shadow-sm overflow-hidden mt-2 voucher-form-container">
+  <div class="bg-slate-700 text-white px-5 py-3 flex items-center justify-between gap-4 voucher-header">
     <div>
-      <div class="text-sm text-gray-500">Accounting Voucher Creation</div>
-      <div class="text-xl font-semibold">{{ vtype|title }}</div>
+      <div class="text-xs text-slate-200">Accounting Voucher Creation</div>
+      <div class="text-lg font-semibold">{{ vtype|title }}</div>
+    </div>
+    <div class="ml-auto flex items-center gap-2">
+      <label for="voucherTypeSelect" class="text-xs text-slate-200">Voucher type</label>
+      <select id="voucherTypeSelect" class="border border-slate-300 rounded px-2 py-1 text-sm text-slate-900">
+        <option value="RECEIPT" {% if vtype|upper == "RECEIPT" %}selected{% endif %}>Receipt</option>
+        <option value="PAYMENT" {% if vtype|upper == "PAYMENT" %}selected{% endif %}>Payment</option>
+        <option value="CONTRA" {% if vtype|upper == "CONTRA" %}selected{% endif %}>Contra</option>
+        <option value="SALES" {% if vtype|upper == "SALES" %}selected{% endif %}>Sales</option>
+        <option value="PURCHASE" {% if vtype|upper == "PURCHASE" %}selected{% endif %}>Purchase</option>
+      </select>
     </div>
   </div>
 
@@ -60,11 +70,11 @@
 
     <!-- Particulars -->
     <div>
-      <div class="font-semibold mb-2">Particulars</div>
+      <div class="voucher-section-title">Particulars</div>
       {{ formset.management_form }}
 
       <div class="overflow-x-auto">
-        <table class="w-full text-sm border rounded">
+        <table class="w-full text-sm border rounded table">
           <thead class="bg-gray-50">
             <tr>
               <th class="text-left p-2">Particulars (Ledger)</th>
@@ -75,7 +85,7 @@
           </thead>
           <tbody>
             {% for f in formset %}
-            <tr class="border-t align-top">
+            <tr class="border-t align-top particular-row">
               <td class="p-2">
                 {{ f.account }}
                 {{ f.account.errors }}
@@ -115,7 +125,7 @@
       <button class="px-4 py-2 rounded bg-black text-white hover:opacity-90" type="submit">
         Accept
       </button>
-      <a class="px-4 py-2 rounded border bg-white hover:bg-gray-50" href="{% url 'ledger:voucher_list' %}">
+      <a class="px-4 py-2 rounded border bg-white hover:bg-gray-50" href="{% url 'ledger:accounts_gateway' %}">
         Cancel
       </a>
     </div>
@@ -254,6 +264,26 @@
       const sel = form.querySelector('select[name="' + prefix + '-account"]');
       const id = sel ? (parseInt(sel.value || "0", 10) || null) : null;
       renderCurBalFor(id, span);
+    });
+  }
+
+  const voucherTypeSelect = document.getElementById("voucherTypeSelect");
+  if (voucherTypeSelect) {
+    voucherTypeSelect.addEventListener("change", function () {
+      var vt = this.value || "";
+      if (!vt) return;
+      // Sales/Purchase should go to inventory vouchers with items
+      if (vt === "SALES") {
+        window.location.href = "{% url 'inventory:sales_voucher' %}";
+        return;
+      }
+      if (vt === "PURCHASE") {
+        window.location.href = "{% url 'inventory:purchase_voucher_create' %}";
+        return;
+      }
+      // Other types use accounting voucher_entry
+      var base = "{% url 'ledger:voucher_entry' 'RECEIPT' %}";
+      window.location.href = base.replace("RECEIPT", vt);
     });
   }
 

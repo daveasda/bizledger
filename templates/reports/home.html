@@ -12,16 +12,8 @@
 <div class="bg-white rounded-xl shadow p-6 mb-6">
   <h2 class="font-semibold text-lg text-slate-700 mb-4">Accounting Features</h2>
   <div class="flex flex-wrap gap-3">
-    {% if sales_ledger %}
-    <a href="{% url 'ledger:ledger_monthly_summary' sales_ledger.id %}" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Sales ledger summary</a>
-    {% else %}
-    <a href="{% url 'ledger:ledgers_display' %}" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Sales ledger summary</a>
-    {% endif %}
-    {% if purchase_ledger %}
-    <a href="{% url 'ledger:ledger_monthly_summary' purchase_ledger.id %}" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Purchase ledger summary</a>
-    {% else %}
-    <a href="{% url 'ledger:ledgers_display' %}" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Purchase ledger summary</a>
-    {% endif %}
+    <a href="{% url 'ledger:accounts_gateway' %}" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Accounts Info</a>
+    <a href="{% url 'inventory:purchase_voucher_create' %}" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Vouchers</a>
     <a href="{% url 'reports:reports_list' %}" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Reports</a>
   </div>
 </div>
@@ -33,94 +25,7 @@
     <a href="{% url 'inventory:stock_groups_display' %}" class="px-5 py-2.5 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium">Stock Groups</a>
     <a href="{% url 'inventory:stock_items_display' %}" class="px-5 py-2.5 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium">Stock Items</a>
     <a href="{% url 'inventory:units_display' %}" class="px-5 py-2.5 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium">Unit of Measure</a>
-  </div>
-</div>
-
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-  <div class="bg-white rounded-xl shadow p-6">
-    <p class="text-sm text-slate-500">Current Mode</p>
-    <p class="text-xl font-semibold">{{ request.session.current_mode|default:"—" }}</p>
-  </div>
-
-  <a href="{% url 'inventory:gateway' %}" class="bg-white rounded-xl shadow p-6 block hover:shadow-md transition">
-    <p class="text-sm text-slate-500">Inventory Status</p>
-    <p class="text-xl font-semibold">View Stock</p>
-  </a>
-
-  <a href="{% url 'reports:reports_list' %}" class="bg-white rounded-xl shadow p-6 block hover:shadow-md transition">
-    <p class="text-sm text-slate-500">Reports</p>
-    <p class="text-xl font-semibold">P&L / Cashflow</p>
-  </a>
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-  <!-- List of Ledgers -->
-  <div class="bg-white rounded-xl shadow p-6">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="font-semibold text-lg">List of Ledgers</h2>
-      <a href="{% url 'ledger:ledgers_display' %}" class="text-sm text-blue-600 hover:text-blue-800">Display</a>
-    </div>
-    <div class="bg-slate-50 rounded border p-2 mb-2">
-      <div class="text-sm text-slate-500">Name of Ledger</div>
-    </div>
-    <div class="max-h-72 overflow-y-auto rounded border">
-      {% for ledger in ledgers %}
-      <div class="flex items-center justify-between px-3 py-2 hover:bg-slate-50 {% if forloop.first %}bg-blue-500 text-white hover:bg-blue-600{% endif %}">
-        <a href="{% url 'ledger:ledger_alter' ledger.id %}" class="flex-1 {% if forloop.first %}text-white hover:text-white{% endif %}">{{ ledger.name }}</a>
-      </div>
-      {% empty %}
-      <div class="px-3 py-2 text-slate-500">No ledgers. <a href="{% url 'ledger:accounts_gateway' %}" class="text-blue-600">Go to Ledgers</a></div>
-      {% endfor %}
-    </div>
-  </div>
-
-  <!-- Inventory: Stock Groups, Items, Units -->
-  <div class="bg-white rounded-xl shadow p-6">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="font-semibold text-lg">Inventory</h2>
-      <a href="{% url 'inventory:gateway' %}" class="text-sm text-blue-600 hover:text-blue-800">Gateway</a>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <div>
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-sm font-medium text-slate-600">Stock Groups</span>
-          <a href="{% url 'inventory:stock_groups_display' %}" class="text-xs text-blue-600">Display</a>
-        </div>
-        <div class="max-h-48 overflow-y-auto rounded border text-sm">
-          {% for group in groups %}
-          <a href="{% url 'inventory:stock_group_alter' group.pk %}" class="block px-2 py-1.5 hover:bg-slate-100">{{ group.name }}{% if group.alias %} ({{ group.alias }}){% endif %}</a>
-          {% empty %}
-          <div class="px-2 py-1.5 text-slate-500">None</div>
-          {% endfor %}
-        </div>
-      </div>
-      <div>
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-sm font-medium text-slate-600">Stock Items</span>
-          <a href="{% url 'inventory:stock_items_display' %}" class="text-xs text-blue-600">Display</a>
-        </div>
-        <div class="max-h-48 overflow-y-auto rounded border text-sm">
-          {% for item in items %}
-          <a href="{% url 'inventory:standard_rates' item.pk %}" class="block px-2 py-1.5 hover:bg-slate-100">{{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}</a>
-          {% empty %}
-          <div class="px-2 py-1.5 text-slate-500">None</div>
-          {% endfor %}
-        </div>
-      </div>
-      <div>
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-sm font-medium text-slate-600">Units</span>
-          <a href="{% url 'inventory:units_display' %}" class="text-xs text-blue-600">Display</a>
-        </div>
-        <div class="max-h-48 overflow-y-auto rounded border text-sm">
-          {% for unit in units %}
-          <a href="{% url 'inventory:unit_alter' unit.pk %}" class="block px-2 py-1.5 hover:bg-slate-100">{{ unit.symbol }}{% if unit.formal_name %} ({{ unit.formal_name }}){% endif %}</a>
-          {% empty %}
-          <div class="px-2 py-1.5 text-slate-500">None</div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
+    <a href="{% url 'inventory:stock_summary' %}" class="px-5 py-2.5 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-medium">Stock Summary</a>
   </div>
 </div>
 
@@ -128,9 +33,6 @@
   <h2 class="font-semibold mb-4">Quick Actions</h2>
   <div class="flex flex-wrap gap-4">
     <a href="/org/select-business/" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Select Business</a>
-    <a href="{% url 'ledger:accounts_gateway' %}" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800">Ledgers</a>
-    <a href="{% url 'inventory:gateway' %}" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800">Inventory</a>
-    <a href="/billing/invoices/" class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900">View Invoices</a>
   </div>
 </div>
 {% endblock %}

@@ -1,10 +1,12 @@
 from django.urls import path
+from django.views.generic import RedirectView
+from django.urls import reverse_lazy
 from . import views
 
 app_name = "ledger"
 
 urlpatterns = [
-    path("", views.gateway, name="gateway"),
+    path("", RedirectView.as_view(url=reverse_lazy("ledger:accounts_gateway")), name="gateway"),
 
     # Accounts Gateway (Tally-style)
     path("accounts/", views.accounts_gateway, name="accounts_gateway"),
@@ -27,8 +29,7 @@ urlpatterns = [
     path("accounts/voucher-types/display/", views.voucher_types_display, name="voucher_types_display"),
     path("accounts/voucher-types/<int:pk>/alter/", views.voucher_type_alter, name="voucher_type_alter"),
 
-    # Vouchers
-    path("vouchers/", views.voucher_list, name="voucher_list"),
+    # Vouchers (entry only; list page removed)
     path("vouchers/entry/<str:vtype>/", views.voucher_entry, name="voucher_entry"),
     path("vouchers/new/", views.voucher_create, name="voucher_create"),
     path("vouchers/<int:pk>/", views.voucher_detail, name="voucher_detail"),
