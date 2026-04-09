@@ -150,14 +150,10 @@ def profit_and_loss(request):
         data["closing_stock_per_godown"] = []
         data["godowns"] = []
 
-    # Query string for "Opening Stock" / "Closing Stock" links to Stock Summary (same godown/date range)
+    # Query string for "Opening Stock" / "Closing Stock" links to Stock Summary (godown only; period is FY start–today on that page)
     qs_parts = []
     if godown:
         qs_parts.append(f"godown={godown.id}")
-    if start_date:
-        qs_parts.append(f"date_from={start_date:%Y-%m-%d}")
-    if end_date:
-        qs_parts.append(f"date_to={end_date:%Y-%m-%d}")
     data["stock_summary_query"] = "?" + "&".join(qs_parts) if qs_parts else ""
 
     return render(request, "reports/profit_and_loss.html", data)

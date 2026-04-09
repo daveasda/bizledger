@@ -16,15 +16,20 @@
               <span>
                 {{ group.name }}{% if group.alias %} ({{ group.alias }}){% endif %}
               </span>
-              <span class="text-xs text-gray-600 ml-2 group-open:hidden">▼</span>
-              <span class="text-xs text-gray-600 ml-2 hidden group-open:inline">▲</span>
+              <span class="flex items-center gap-2">
+                <span class="text-xs text-gray-600 group-open:hidden">▼</span>
+                <span class="text-xs text-gray-600 hidden group-open:inline">▲</span>
+              </span>
             </summary>
             {% if group.children.all %}
             <div class="mt-1 ml-4 border-l pl-3 space-y-0.5">
               {% for child in group.children.all %}
-              <a href="{% url 'inventory:stock_group_alter' child.pk %}" class="block px-2 py-1 rounded hover:bg-slate-100">
-                {{ child.name }}{% if child.alias %} ({{ child.alias }}){% endif %}
-              </a>
+              <div class="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-slate-100">
+                <span>{{ child.name }}{% if child.alias %} ({{ child.alias }}){% endif %}</span>
+                <div class="flex items-center gap-1">
+                  <a href="{% url 'inventory:stock_group_alter' child.pk %}" class="px-2 py-0.5 text-xs border rounded bg-white hover:bg-gray-50">Alter</a>
+                </div>
+              </div>
               {% endfor %}
             </div>
             {% endif %}
@@ -41,11 +46,6 @@
     <div class="font-semibold mb-3">Stock Groups</div>
     <div class="space-y-1">
       <a href="{% url 'inventory:stock_group_create' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Create</a>
-      <a href="{% url 'inventory:stock_groups_display' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Display</a>
-      <a href="{% url 'inventory:stock_groups_display' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Alter</a>
-    </div>
-    <div class="pt-2 mt-3 border-t">
-      <a href="{% url 'inventory:stock_groups_gateway' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded text-center">Quit</a>
     </div>
   </div>
 </div>

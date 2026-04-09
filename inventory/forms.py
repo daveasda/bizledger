@@ -1,4 +1,5 @@
 from decimal import Decimal
+import json
 from django import forms
 from django.forms import modelformset_factory
 from .models import StockGroup, Item, UnitOfMeasure, StandardRate, Godown
@@ -7,40 +8,185 @@ from .models import StockGroup, Item, UnitOfMeasure, StandardRate, Godown
 class StockGroupForm(forms.ModelForm):
     class Meta:
         model = StockGroup
-        fields = ["name", "alias", "parent", "can_quantities_be_added"]
+        fields = ["name", "alias", "parent"]
         widgets = {
             "name": forms.TextInput(attrs={"class": "w-full px-3 py-2 border rounded", "placeholder": ""}),
             "alias": forms.TextInput(attrs={"class": "w-full px-3 py-2 border rounded", "placeholder": ""}),
             "parent": forms.Select(attrs={"class": "w-full px-3 py-2 border rounded"}),
-            "can_quantities_be_added": forms.Select(
-                choices=[(True, "Yes"), (False, "No")],
-                attrs={"class": "w-full px-3 py-2 border rounded"},
-            ),
         }
         labels = {
             "name": "Name (alias)",
             "alias": "",
             "parent": "Under",
-            "can_quantities_be_added": "Can Quantities of items be ADDED?",
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.business = kwargs.pop("business", None)
+        self.group_type = kwargs.pop("group_type", "any")  # any | main | sub
+        super().__init__(*args, **kwargs)
+        if self.business:
+            qs = StockGroup.objects.filter(
+                business=self.business, parent__isnull=True
+            ).order_by("name")
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if self.group_type == "main":
+                self.fields["parent"].queryset = StockGroup.objects.none()
+                self.fields["parent"].empty_label = "Primary"
+                self.fields["parent"].required = False
+                self.fields["parent"].widget.attrs["disabled"] = "disabled"
+            elif self.group_type == "sub":
+                self.fields["parent"].queryset = qs
+                self.fields["parent"].empty_label = "Select Main Group"
+                self.fields["parent"].required = True
+            else:
+                self.fields["parent"].queryset = qs
+                self.fields["parent"].empty_label = "Primary"
+                self.fields["parent"].required = False
+        if not self.instance.pk:
+            self.fields["parent"].initial = None  # Primary
+
+    def clean_parent(self):
+        parent = self.cleaned_data.get("parent")
+        if self.group_type == "main":
+            return None
+        if self.group_type == "sub" and not parent:
+            raise forms.ValidationError("Please choose a main group.")
+        # Always enforce two-level hierarchy: parent must be a main group.
+        if parent and parent.parent_id is not None:
+            raise forms.ValidationError("Sub groups can only be created under main groups.")
+        return parent
+
+
+class StockItemForm(forms.ModelForm):
+    main_group = forms.ModelChoiceField(
+        queryset=StockGroup.objects.none(),
+        required=False,
+        label="Main Group",
+        widget=forms.Select(attrs={"class": "w-full px-3 py-2 border rounded"}),
+    )
+    sub_group = forms.ModelChoiceField(
+        queryset=StockGroup.objects.none(),
+        required=False,
+        label="Sub Group",
+        widget=forms.Select(attrs={"class": "w-full px-3 py-2 border rounded"}),
+    )
+
+
+    class Meta:
+        model = Item
+        fields = [
+            "sku",
+            "alias",
+            "stock_group",
+            "unit",
+            "reorder_level",
+            "opening_qty",
+            "opening_rate",
+            "opening_per",
+            "opening_value",
+        ]
+        widgets = {
+            "sku": forms.TextInput(attrs={"class": "w-full px-3 py-2 border rounded", "placeholder": ""}),
+            "alias": forms.TextInput(attrs={"class": "w-full px-3 py-2 border rounded", "placeholder": ""}),
+            "stock_group": forms.Select(attrs={"class": "w-full px-3 py-2 border rounded"}),
+            "unit": forms.Select(attrs={"class": "w-full px-3 py-2 border rounded"}),
+            "reorder_level": forms.NumberInput(attrs={"class": "w-full px-3 py-2 border rounded", "step": "0.01"}),
+            "opening_qty": forms.NumberInput(attrs={"class": "w-full px-3 py-2 border rounded", "step": "0.001"}),
+            "opening_rate": forms.NumberInput(attrs={"class": "w-full px-3 py-2 border rounded", "step": "0.01"}),
+            "opening_per": forms.TextInput(attrs={"class": "w-full px-3 py-2 border rounded", "placeholder": "Nos"}),
+            "opening_value": forms.NumberInput(attrs={"class": "w-full px-3 py-2 border rounded", "step": "0.01"}),
+        }
+        labels = {
+            "sku": "Name (alias)",
+            "alias": "",
+            "stock_group": "Under",
+            "unit": "Units",
+            "reorder_level": "Reorder Level",
+            "opening_qty": "Quantity",
+            "opening_rate": "Rate",
+            "opening_per": "per",
+            "opening_value": "Value",
         }
 
     def __init__(self, *args, **kwargs):
         self.business = kwargs.pop("business", None)
         super().__init__(*args, **kwargs)
         if self.business:
-            qs = StockGroup.objects.filter(business=self.business).order_by("name")
-            if self.instance and self.instance.pk:
-                qs = qs.exclude(pk=self.instance.pk)
-            self.fields["parent"].queryset = qs
-            self.fields["parent"].empty_label = "Primary"
-            self.fields["parent"].required = False
-        if not self.instance.pk:
-            self.fields["parent"].initial = None  # Primary
-            self.fields["can_quantities_be_added"].initial = True  # Yes
-        self.fields["can_quantities_be_added"].widget = forms.Select(
-            choices=[(True, "Yes"), (False, "No")],
-            attrs={"class": "w-full px-3 py-2 border rounded"},
-        )
+            main_groups = StockGroup.objects.filter(
+                business=self.business, parent__isnull=True
+            ).order_by("name")
+            self.fields["main_group"].queryset = main_groups
+            self.fields["main_group"].empty_label = "Select Main Group"
+            self.fields["main_group"].required = True
+
+            if self.instance and self.instance.pk and self.instance.stock_group_id:
+                sg = self.instance.stock_group
+                selected_main = sg.parent if sg.parent_id else sg
+                selected_sub = sg if sg.parent_id else None
+            else:
+                selected_main = None
+                selected_sub = None
+
+            if self.is_bound:
+                main_id = self.data.get("main_group") or None
+                sub_id = self.data.get("sub_group") or None
+                if main_id:
+                    try:
+                        selected_main = main_groups.get(pk=main_id)
+                    except (StockGroup.DoesNotExist, ValueError, TypeError):
+                        selected_main = None
+                if sub_id:
+                    try:
+                        selected_sub = StockGroup.objects.get(
+                            business=self.business, pk=sub_id
+                        )
+                    except (StockGroup.DoesNotExist, ValueError, TypeError):
+                        selected_sub = None
+
+            if selected_main:
+                subgroups = StockGroup.objects.filter(
+                    business=self.business, parent=selected_main
+                ).order_by("name")
+            else:
+                subgroups = StockGroup.objects.none()
+            self.fields["sub_group"].queryset = subgroups
+            self.fields["sub_group"].empty_label = "Select Sub Group"
+            self.fields["sub_group"].required = True
+
+            subgroup_map = {
+                str(g.pk): [{"id": s.pk, "name": s.name} for s in g.children.all().order_by("name")]
+                for g in main_groups.prefetch_related("children")
+            }
+            self.fields["sub_group"].widget.attrs["data-subgroups"] = json.dumps(subgroup_map)
+
+            if selected_main:
+                self.fields["main_group"].initial = selected_main.pk
+            if selected_sub:
+                self.fields["sub_group"].initial = selected_sub.pk
+
+            self.fields["stock_group"].required = False
+            self.fields["stock_group"].widget = forms.HiddenInput()
+            self.fields["unit"].queryset = UnitOfMeasure.objects.filter(business=self.business).order_by("symbol")
+            self.fields["unit"].empty_label = "Not Applicable"
+            self.fields["unit"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        main_group = cleaned.get("main_group")
+        sub_group = cleaned.get("sub_group")
+
+        if not main_group:
+            self.add_error("main_group", "Please select a main group.")
+            return cleaned
+        if not sub_group:
+            self.add_error("sub_group", "Please select a sub group.")
+            return cleaned
+        if sub_group.parent_id != main_group.id:
+            self.add_error("sub_group", "Selected sub group does not belong to selected main group.")
+            return cleaned
+        cleaned["stock_group"] = sub_group
+        return cleaned
 
 
 class UnitOfMeasureForm(forms.ModelForm):
@@ -61,74 +207,6 @@ class UnitOfMeasureForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.business = kwargs.pop("business", None)
         super().__init__(*args, **kwargs)
-
-
-class StockItemForm(forms.ModelForm):
-    # Opening balance-style extra fields (quantity, rate, per, value)
-    opening_qty = forms.DecimalField(
-        max_digits=14,
-        decimal_places=3,
-        required=False,
-        label="Opening Qty",
-        widget=forms.NumberInput(
-            attrs={"class": "w-full px-3 py-2 border rounded", "step": "0.001"}
-        ),
-    )
-    opening_rate = forms.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        required=False,
-        label="Opening Rate",
-        widget=forms.NumberInput(
-            attrs={"class": "w-full px-3 py-2 border rounded", "step": "0.01"}
-        ),
-    )
-    opening_value = forms.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        required=False,
-        label="Opening Value",
-        widget=forms.NumberInput(
-            attrs={"class": "w-full px-3 py-2 border rounded", "step": "0.01"}
-        ),
-    )
-    opening_per = forms.CharField(
-        max_length=32,
-        required=False,
-        label="Opening per",
-        widget=forms.TextInput(
-            attrs={"class": "w-full px-3 py-2 border rounded", "placeholder": "Nos"}
-        ),
-    )
-
-    class Meta:
-        model = Item
-        fields = ["sku", "alias", "stock_group", "unit", "reorder_level"]
-        widgets = {
-            "sku": forms.TextInput(attrs={"class": "w-full px-3 py-2 border rounded", "placeholder": ""}),
-            "alias": forms.TextInput(attrs={"class": "w-full px-3 py-2 border rounded", "placeholder": ""}),
-            "stock_group": forms.Select(attrs={"class": "w-full px-3 py-2 border rounded"}),
-            "unit": forms.Select(attrs={"class": "w-full px-3 py-2 border rounded"}),
-            "reorder_level": forms.NumberInput(attrs={"class": "w-full px-3 py-2 border rounded", "step": "0.01"}),
-        }
-        labels = {
-            "sku": "Name (alias)",
-            "alias": "",
-            "stock_group": "Under",
-            "unit": "Units",
-            "reorder_level": "Reorder Level",
-        }
-
-    def __init__(self, *args, **kwargs):
-        self.business = kwargs.pop("business", None)
-        super().__init__(*args, **kwargs)
-        if self.business:
-            self.fields["stock_group"].queryset = StockGroup.objects.filter(business=self.business).order_by("name")
-            self.fields["stock_group"].empty_label = "Primary"
-            self.fields["stock_group"].required = False
-            self.fields["unit"].queryset = UnitOfMeasure.objects.filter(business=self.business).order_by("symbol")
-            self.fields["unit"].empty_label = "Not Applicable"
-            self.fields["unit"].required = False
 
 
 class StandardRateForm(forms.ModelForm):

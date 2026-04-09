@@ -11,10 +11,6 @@ class StockGroup(models.Model):
     parent = models.ForeignKey(
         "self", null=True, blank=True, on_delete=models.PROTECT, related_name="children"
     )
-    can_quantities_be_added = models.BooleanField(
-        default=True,
-        help_text="Can quantities of items be ADDED?",
-    )
 
     class Meta:
         constraints = [
@@ -63,6 +59,10 @@ class Item(models.Model):
     )
     reorder_level = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     is_stock_item = models.BooleanField(default=True)
+    opening_qty = models.DecimalField(max_digits=14, decimal_places=3, null=True, blank=True)
+    opening_rate = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    opening_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    opening_per = models.CharField(max_length=32, blank=True, default="")
 
     class Meta:
         unique_together = ("business", "sku")
@@ -109,7 +109,7 @@ class Godown(models.Model):
 class StockLedgerEntry(models.Model):
     """
     Internal movement table (not shown in UI). Tally-style: balances = sum(qty_in)-sum(qty_out).
-    voucher_type: PURCHASE, SALES, STOCK_JOURNAL.
+    voucher_type: PURCHASE, SALES, STOCK_JOURNAL, OPENING (internal seed).
     """
     business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name="stock_ledger_entries")
     posting_date = models.DateField()

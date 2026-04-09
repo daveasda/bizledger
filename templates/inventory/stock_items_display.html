@@ -18,9 +18,12 @@
       {% if search_query %}
         {% if search_results %}
           {% for item in search_results %}
-          <a href="{% url 'inventory:standard_rates' item.pk %}" class="block px-2 py-1 hover:bg-slate-100">
-            {{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}
-          </a>
+          <div class="flex items-center justify-between gap-2 px-2 py-1 hover:bg-slate-100 rounded">
+            <a href="{% url 'inventory:stock_item_display' item.pk %}" class="flex-1 min-w-0">
+              {{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}
+            </a>
+            <a href="{% url 'inventory:stock_item_display' item.pk %}" class="px-2 py-0.5 text-xs border rounded bg-white hover:bg-gray-50 whitespace-nowrap">View</a>
+          </div>
           {% endfor %}
         {% else %}
           <div class="px-2 py-2 text-gray-600 text-sm">No items matched "{{ search_query }}".</div>
@@ -34,9 +37,12 @@
             </summary>
             <div class="mt-1 ml-4 border-l pl-3 space-y-0.5">
               {% for item in ungrouped_items %}
-              <a href="{% url 'inventory:standard_rates' item.pk %}" class="block px-2 py-1 rounded hover:bg-slate-100">
-                {{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}
-              </a>
+              <div class="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-slate-100">
+                <a href="{% url 'inventory:stock_item_display' item.pk %}" class="flex-1 min-w-0">
+                  {{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}
+                </a>
+                <a href="{% url 'inventory:stock_item_display' item.pk %}" class="px-2 py-0.5 text-xs border rounded bg-white hover:bg-gray-50 whitespace-nowrap">View</a>
+              </div>
               {% endfor %}
             </div>
           </details>
@@ -53,9 +59,12 @@
             </summary>
             <div class="mt-1 ml-4 border-l pl-3 space-y-0.5">
               {% for item in group.items.all %}
-              <a href="{% url 'inventory:standard_rates' item.pk %}" class="block px-2 py-1 rounded hover:bg-slate-100">
-                {{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}
-              </a>
+              <div class="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-slate-100">
+                <a href="{% url 'inventory:stock_item_display' item.pk %}" class="flex-1 min-w-0">
+                  {{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}
+                </a>
+                <a href="{% url 'inventory:stock_item_display' item.pk %}" class="px-2 py-0.5 text-xs border rounded bg-white hover:bg-gray-50 whitespace-nowrap">View</a>
+              </div>
               {% empty %}
               <div class="px-2 py-1 text-gray-500 text-sm">No items directly under this group.</div>
               {% endfor %}
@@ -65,9 +74,12 @@
                 <div class="text-xs font-semibold text-slate-600 mb-0.5">{{ child.name }}{% if child.alias %} ({{ child.alias }}){% endif %}</div>
                 <div class="ml-3 border-l pl-2 space-y-0.5">
                   {% for item in child.items.all %}
-                  <a href="{% url 'inventory:standard_rates' item.pk %}" class="block px-2 py-1 rounded hover:bg-slate-100">
-                    {{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}
-                  </a>
+                  <div class="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-slate-100">
+                    <a href="{% url 'inventory:stock_item_display' item.pk %}" class="flex-1 min-w-0">
+                      {{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}
+                    </a>
+                    <a href="{% url 'inventory:stock_item_display' item.pk %}" class="px-2 py-0.5 text-xs border rounded bg-white hover:bg-gray-50 whitespace-nowrap">View</a>
+                  </div>
                   {% empty %}
                   <div class="px-2 py-1 text-gray-400 text-xs">No items in this subgroup.</div>
                   {% endfor %}
@@ -88,11 +100,6 @@
     <div class="font-semibold mb-3">Stock Items</div>
     <div class="space-y-1">
       <a href="{% url 'inventory:stock_item_create' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Create</a>
-      <a href="{% url 'inventory:stock_items_display' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Display</a>
-      <a href="{% url 'inventory:stock_items_display' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Alter</a>
-    </div>
-    <div class="pt-2 mt-3 border-t">
-      <a href="{% url 'inventory:stock_items_gateway' %}" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded text-center">Quit</a>
     </div>
   </div>
 </div>

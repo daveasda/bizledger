@@ -1,0 +1,120 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="bg-white border rounded p-6 max-w-3xl mx-auto">
+  <div class="bg-slate-700 text-white px-4 py-2 mb-4 font-semibold text-center rounded">Stock Item Display</div>
+
+  <div class="space-y-4 bg-amber-50 p-6 rounded border border-amber-200">
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Name (alias)</label>
+      <div class="bg-white border rounded flex gap-2 px-3 py-2 text-sm">
+        <span>{{ item.sku }}</span>
+        <span>{{ item.alias }}</span>
+      </div>
+      <p class="text-xs text-gray-500 mt-1">Name and optional alias.</p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Main Group</label>
+      <div class="bg-white border rounded px-3 py-2 text-sm">
+        {% if item.stock_group %}
+          {% if item.stock_group.parent %}{{ item.stock_group.parent.name }}{% else %}{{ item.stock_group.name }}{% endif %}
+        {% else %}
+          Primary
+        {% endif %}
+      </div>
+      <p class="text-xs text-gray-500 mt-1">Top-level stock group.</p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Sub Group</label>
+      <div class="bg-white border rounded px-3 py-2 text-sm">
+        {% if item.stock_group %}
+          {% if item.stock_group.parent %}{{ item.stock_group.name }}{% else %}—{% endif %}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+      <p class="text-xs text-gray-500 mt-1">Group under the selected main group.</p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Units</label>
+      <div class="bg-white border rounded px-3 py-2 text-sm">{{ unit_symbol }}</div>
+      <p class="text-xs text-gray-500 mt-1">Select a unit or &quot;Not Applicable&quot; if quantities are not measured.</p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-semibold text-gray-800 mb-1">Reorder Level</label>
+      <div class="bg-white border rounded px-3 py-2 text-sm">{{ item.reorder_level }}</div>
+    </div>
+
+    <div class="mt-4 pt-4 border-t border-amber-200">
+      <div class="text-sm font-semibold text-gray-800 mb-2">Opening Balance</div>
+      <div class="grid grid-cols-4 gap-3 items-center text-sm">
+        <div class="text-gray-600 font-medium">Quantity</div>
+        <div class="text-gray-600 font-medium">Rate</div>
+        <div class="text-gray-600 font-medium">per</div>
+        <div class="text-gray-600 font-medium">Value</div>
+
+        <div class="bg-white border rounded px-3 py-2">{% if item.opening_qty is not None %}{{ item.opening_qty }}{% else %}—{% endif %}</div>
+        <div class="bg-white border rounded px-3 py-2">{% if item.opening_rate is not None %}{{ item.opening_rate }}{% else %}—{% endif %}</div>
+        <div class="bg-white border rounded px-3 py-2">{% if item.opening_per %}{{ item.opening_per }}{% else %}—{% endif %}</div>
+        <div class="bg-white border rounded px-3 py-2">{% if item.opening_value is not None %}{{ item.opening_value }}{% else %}—{% endif %}</div>
+      </div>
+      <p class="text-xs text-gray-600 mt-1">
+        Optional opening stock for this item: quantity, rate, and total value.
+      </p>
+    </div>
+
+    <div class="mt-4 pt-4 border-t border-amber-200 space-y-6">
+      <div class="bg-white border rounded p-4">
+        <div class="font-semibold mb-3">Standard Cost</div>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b">
+              <th class="text-left py-2 px-2">Applicable From</th>
+              <th class="text-left py-2 px-2">Rate</th>
+              <th class="text-left py-2 px-2">per</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-100">
+              <td class="py-2 px-2">{% if cost_latest %}{{ cost_latest.applicable_from|date:"d-M-Y" }}{% else %}—{% endif %}</td>
+              <td class="py-2 px-2">{% if cost_latest %}{{ cost_latest.rate }}{% else %}—{% endif %}</td>
+              <td class="py-2 px-2">{{ unit_symbol }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-white border rounded p-4">
+        <div class="font-semibold mb-3">Standard Selling Price</div>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b">
+              <th class="text-left py-2 px-2">Applicable From</th>
+              <th class="text-left py-2 px-2">Rate</th>
+              <th class="text-left py-2 px-2">per</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-100">
+              <td class="py-2 px-2">{% if selling_latest %}{{ selling_latest.applicable_from|date:"d-M-Y" }}{% else %}—{% endif %}</td>
+              <td class="py-2 px-2">{% if selling_latest %}{{ selling_latest.rate }}{% else %}—{% endif %}</td>
+              <td class="py-2 px-2">{{ unit_symbol }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2 pt-4">
+      <a href="{% url 'inventory:stock_item_alter' item.pk %}" class="px-6 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 font-semibold">Alter</a>
+      <form method="post" action="{% url 'inventory:stock_item_delete' item.pk %}" class="inline" onsubmit="return confirm('Delete this stock item?');">
+        {% csrf_token %}
+        <button type="submit" class="px-6 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 font-semibold">Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -18,7 +18,10 @@
 <!-- Top bar -->
 <header class="bg-white shadow-sm">
   <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-    <div class="text-xl font-semibold">BizLedger</div>
+    <div class="flex items-baseline gap-4">
+      <span class="text-xl font-semibold">BizLedger</span>
+      <span class="text-xs text-slate-500 font-normal" title="Financial year (1 Apr – 31 Mar)">FY {{ fy_label }}</span>
+    </div>
     <nav class="space-x-6 text-sm font-medium">
       <a href="/" class="hover:text-blue-600">Dashboard</a>
       <a href="/admin/" class="hover:text-blue-600">Admin</a>

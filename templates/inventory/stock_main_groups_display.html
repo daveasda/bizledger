@@ -1,0 +1,38 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="grid md:grid-cols-3 gap-4">
+  <div class="md:col-span-2 bg-white border rounded p-4">
+    <div class="bg-slate-600 text-white px-3 py-2 mb-2 font-semibold">List of Stock Main Groups</div>
+    <div class="bg-white border rounded p-2 mb-2">
+      <form method="get" action="{% url 'inventory:stock_main_groups_display' %}" class="flex items-center gap-2">
+        <label for="q" class="text-sm text-gray-600 whitespace-nowrap">Search group:</label>
+        <input id="q" name="q" type="text" value="{{ search_query }}" placeholder="Group name or alias"
+               class="flex-1 px-3 py-1.5 border rounded text-sm" />
+        <button type="submit" class="px-3 py-1.5 bg-slate-700 text-white rounded text-sm hover:bg-slate-800">Search</button>
+        {% if search_query %}
+        <a href="{% url 'inventory:stock_main_groups_display' %}" class="px-3 py-1.5 border rounded text-sm text-gray-700 hover:bg-gray-50">Clear</a>
+        {% endif %}
+      </form>
+    </div>
+    <div class="bg-white border rounded max-h-96 overflow-y-auto">
+      {% for group in groups %}
+      <div class="px-2 py-1 hover:bg-slate-100 cursor-pointer {% if forloop.first %}bg-slate-200{% endif %}"
+           onclick="window.location='{% url 'inventory:stock_group_display' group.pk %}'"
+           role="link" tabindex="0"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location='{% url 'inventory:stock_group_display' group.pk %}';}">
+        {{ group.name }}{% if group.alias %} ({{ group.alias }}){% endif %}
+      </div>
+      {% empty %}
+      <div class="px-2 py-1 text-gray-600">No main groups found. Create one to get started.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="bg-gray-100 border rounded p-4">
+    <div class="font-semibold mb-3">Stock Main Groups</div>
+    <div class="space-y-1">
+      <a href="{% url 'inventory:stock_group_create' %}?type=main" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Create</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

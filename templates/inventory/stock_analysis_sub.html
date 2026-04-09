@@ -1,0 +1,58 @@
+{% extends "inventory/base_inventory.html" %}
+{% load humanize %}
+{% block inventory_content %}
+<div class="bg-white border rounded p-6 max-w-6xl mx-auto">
+  <h1 class="text-2xl font-bold mb-2">Stock Analysis — Sub Groups</h1>
+  <p class="text-sm text-slate-700 mb-1"><span class="font-medium">Main Group:</span> {{ main_group.name }}</p>
+  <p class="text-sm text-slate-700 mb-4">Period: {{ period_start|date:"d M Y" }} – {{ period_end|date:"d M Y" }}</p>
+  <p class="text-sm text-slate-700 mb-4">As on Date: {{ period_end|date:"d M Y" }}</p>
+
+  <div class="border rounded overflow-hidden">
+    <table class="w-full text-sm border-collapse">
+      <thead class="bg-slate-100">
+        <tr>
+          <th rowspan="2" class="text-left py-2 px-3 border-b border-r align-middle">Particulars</th>
+          <th colspan="3" class="text-center py-2 px-3 border-b border-r">Inward Movement</th>
+          <th colspan="3" class="text-center py-2 px-3 border-b">Outward Movement</th>
+        </tr>
+        <tr>
+          <th class="text-right py-2 px-3 border-b border-r">Qty</th>
+          <th class="text-right py-2 px-3 border-b border-r">Rate</th>
+          <th class="text-right py-2 px-3 border-b border-r">Value</th>
+          <th class="text-right py-2 px-3 border-b border-r">Qty</th>
+          <th class="text-right py-2 px-3 border-b border-r">Rate</th>
+          <th class="text-right py-2 px-3 border-b">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="border-t hover:bg-slate-50 {% if row.id %}cursor-pointer{% endif %}"
+            {% if row.id %}onclick="window.location='{% url 'inventory:stock_analysis_items' row.id %}{% if selected_godown_id %}?godown={{ selected_godown_id }}{% endif %}'"{% endif %}>
+          <td class="py-2 px-3 font-medium border-b border-r">{{ row.name }}</td>
+          <td class="py-2 px-3 text-right border-b border-r">{{ row.inward_qty|intcomma }}</td>
+          <td class="py-2 px-3 text-right border-b border-r">{{ row.inward_rate|floatformat:2|intcomma }}</td>
+          <td class="py-2 px-3 text-right border-b border-r">{{ row.inward_value|floatformat:2|intcomma }}</td>
+          <td class="py-2 px-3 text-right border-b border-r">{{ row.outward_qty|intcomma }}</td>
+          <td class="py-2 px-3 text-right border-b border-r">{{ row.outward_rate|floatformat:2|intcomma }}</td>
+          <td class="py-2 px-3 text-right border-b">{{ row.outward_value|floatformat:2|intcomma }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="py-4 px-3 text-slate-500">No movements found.</td></tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="bg-slate-50 font-semibold border-t">
+        <tr>
+          <td class="py-2 px-3 border-r">Grand Total</td>
+          <td class="py-2 px-3 text-right border-r">{{ totals.inward_qty|intcomma }}</td>
+          <td class="py-2 px-3 text-right border-r"></td>
+          <td class="py-2 px-3 text-right border-r">{{ totals.inward_value|floatformat:2|intcomma }}</td>
+          <td class="py-2 px-3 text-right border-r">{{ totals.outward_qty|intcomma }}</td>
+          <td class="py-2 px-3 text-right border-r"></td>
+          <td class="py-2 px-3 text-right">{{ totals.outward_value|floatformat:2|intcomma }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <p class="mt-4"><a href="{% url 'inventory:stock_analysis' %}{% if selected_godown_id %}?godown={{ selected_godown_id }}{% endif %}" class="text-slate-600 hover:underline">← Back to Stock Analysis</a></p>
+</div>
+{% endblock %}

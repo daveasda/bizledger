@@ -112,7 +112,7 @@
               <td class="py-1 px-2">{{ cform.applicable_from }}</td>
               <td class="py-1 px-2">{{ cform.rate }}</td>
               <td class="py-1 px-2"><span class="js-unit-per">{{ unit_symbol }}</span></td>
-              <td></td>
+              {% if cform.instance.pk %}<td class="py-1 px-2">{{ cform.DELETE }} Delete</td>{% else %}<td></td>{% endif %}
             </tr>
             {% if cform.errors %}<tr><td colspan="4" class="text-red-600 text-xs px-2">{{ cform.errors }}</td></tr>{% endif %}
             {% endfor %}
@@ -139,7 +139,7 @@
               <td class="py-1 px-2">{{ sform.applicable_from }}</td>
               <td class="py-1 px-2">{{ sform.rate }}</td>
               <td class="py-1 px-2"><span class="js-unit-per">{{ unit_symbol }}</span></td>
-              <td></td>
+              {% if sform.instance.pk %}<td class="py-1 px-2">{{ sform.DELETE }} Delete</td>{% else %}<td></td>{% endif %}
             </tr>
             {% if sform.errors %}<tr><td colspan="4" class="text-red-600 text-xs px-2">{{ sform.errors }}</td></tr>{% endif %}
             {% endfor %}
@@ -150,8 +150,8 @@
     </div>
 
     <div class="flex gap-2 pt-4">
-      <button class="px-6 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 font-semibold" type="submit">Accept</button>
-      <a href="{% url 'inventory:stock_items_display' %}" class="px-6 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 font-semibold">Cancel</a>
+      <button class="px-6 py-2 bg-slate-700 text-white rounded hover:bg-slate-800 font-semibold" type="submit">Save Changes</button>
+      <a href="{% url 'inventory:stock_item_display' item.pk %}" class="px-6 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 font-semibold">Cancel</a>
     </div>
   </form>
 </div>

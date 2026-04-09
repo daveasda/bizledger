@@ -1,0 +1,104 @@
+{% extends "inventory/base_inventory.html" %}
+{% load humanize %}
+{% block inventory_content %}
+<div class="bg-white border rounded max-w-6xl mx-auto overflow-hidden">
+  <div class="border-b">
+    <div class="grid grid-cols-12">
+      <div class="col-span-4 border-r px-3 py-1 text-sm font-semibold">Item Movement Analysis</div>
+      <div class="col-span-4 border-r px-3 py-1 text-sm font-semibold text-center">{{ business.name }}</div>
+      <div class="col-span-4 px-3 py-1 text-sm font-semibold text-right"></div>
+    </div>
+    <div class="grid grid-cols-12 border-t">
+      <div class="col-span-9 border-r px-3 py-2 text-sm">
+        <div>{{ item.sku }}{% if item.alias %} ({{ item.alias }}){% endif %}</div>
+        <div>{% if item.stock_group %}{{ item.stock_group.name }}{% else %}Primary{% endif %}</div>
+      </div>
+      <div class="col-span-3 text-xs">
+        <div class="px-3 py-0.5 border-b text-right">{{ item.base_unit|default:"" }}{% if item.symbol %} {{ item.symbol }}{% endif %}</div>
+        <div class="px-3 py-0.5 border-b text-right">{{ business.name }}</div>
+        <div class="px-3 py-0.5 border-b text-right">For {{ period_start|date:"j-M-Y" }}</div>
+        <div class="px-3 py-0.5 text-right font-medium">Movement Values</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-12 border-t text-xs italic">
+      <div class="col-span-9 border-r px-3 py-1 not-italic font-medium">Particulars</div>
+      <div class="col-span-3 px-0 py-1">
+        <div class="grid grid-cols-3">
+          <div class="px-2 text-right">Quantity</div>
+          <div class="px-2 text-right">Basic Rate</div>
+          <div class="px-2 text-right">Value</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-3 py-5 text-sm min-h-[360px]">
+    <div class="mb-1 font-semibold">Movement Inward:</div>
+    <div class="italic mb-1">Suppliers:</div>
+    {% for row in inward_rows %}
+    <div class="grid grid-cols-12 text-sm">
+      <div class="col-span-9 pl-4">{{ row.name }}</div>
+      <div class="col-span-3">
+        <div class="grid grid-cols-3">
+          <div class="px-2 text-right">{{ row.qty|intcomma }}</div>
+          <div class="px-2 text-right">{{ row.basic_rate|floatformat:2|intcomma }}</div>
+          <div class="px-2 text-right">{{ row.value|floatformat:2|intcomma }}</div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="text-slate-500 pl-4 mb-2">No inward movement found.</div>
+    {% endfor %}
+    <div class="grid grid-cols-12 border-t-2 border-slate-500 font-semibold mt-1 mb-5">
+      <div class="col-span-9"></div>
+      <div class="col-span-3">
+        <div class="grid grid-cols-3">
+          <div class="px-2 text-right">{{ totals.inward_qty|intcomma }}</div>
+          <div class="px-2 text-right"></div>
+          <div class="px-2 text-right">{{ totals.inward_value|floatformat:2|intcomma }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-1 font-semibold">Movement Outward:</div>
+    <div class="italic mb-1">Buyers:</div>
+    {% for row in outward_rows %}
+    <div class="grid grid-cols-12 text-sm">
+      <div class="col-span-9 pl-4">{{ row.name }}</div>
+      <div class="col-span-3">
+        <div class="grid grid-cols-3">
+          <div class="px-2 text-right">{{ row.qty|intcomma }}</div>
+          <div class="px-2 text-right">{{ row.basic_rate|floatformat:2|intcomma }}</div>
+          <div class="px-2 text-right">{{ row.value|floatformat:2|intcomma }}</div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="text-slate-500 pl-4">No outward movement found.</div>
+    {% endfor %}
+    <div class="grid grid-cols-12 border-t-2 border-slate-500 font-semibold mt-1">
+      <div class="col-span-9"></div>
+      <div class="col-span-3">
+        <div class="grid grid-cols-3">
+          <div class="px-2 text-right">{{ totals.outward_qty|intcomma }}</div>
+          <div class="px-2 text-right"></div>
+          <div class="px-2 text-right">{{ totals.outward_value|floatformat:2|intcomma }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="border-t px-3 py-2 flex items-center justify-between text-sm">
+    <div>As on Date: {{ period_end|date:"d M Y" }}</div>
+    <div>Period: {{ period_start|date:"d M Y" }} - {{ period_end|date:"d M Y" }}</div>
+  </div>
+</div>
+
+<p class="mt-4 max-w-6xl mx-auto">
+  {% if item.stock_group_id %}
+  <a href="{% url 'inventory:stock_analysis_items' item.stock_group_id %}{% if selected_godown_id %}?godown={{ selected_godown_id }}{% endif %}" class="text-slate-600 hover:underline">← Back to Items</a>
+  {% else %}
+  <a href="{% url 'inventory:stock_analysis' %}" class="text-slate-600 hover:underline">← Back to Stock Analysis</a>
+  {% endif %}
+</p>
+{% endblock %}

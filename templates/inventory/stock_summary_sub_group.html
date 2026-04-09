@@ -1,0 +1,49 @@
+{% extends "inventory/base_inventory.html" %}
+{% load humanize %}
+{% block inventory_content %}
+<div class="bg-white border rounded p-6 max-w-5xl mx-auto">
+  <h1 class="text-2xl font-bold mb-2">Stock Summary — Sub Group</h1>
+  <p class="text-sm text-slate-700 mb-1">
+    <span class="font-medium">Main Group:</span> {{ subgroup.parent.name }}
+  </p>
+  <p class="text-sm text-slate-700 mb-2">
+    <span class="font-medium">Sub Group:</span> {{ subgroup.name }}{% if subgroup.alias %} ({{ subgroup.alias }}){% endif %}
+  </p>
+  <p class="text-sm text-slate-700 mb-4">
+    <span class="font-medium">Period:</span>
+    {{ period_start|date:"d M Y" }} – {{ period_end|date:"d M Y" }}
+    <span class="text-slate-500">(financial year to date)</span>
+  </p>
+
+  <div class="border rounded overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-100">
+        <tr>
+          <th class="text-left py-2 px-3">Item</th>
+          <th class="text-right py-2 px-3">Qty In</th>
+          <th class="text-right py-2 px-3">Qty Out</th>
+          <th class="text-right py-2 px-3">Closing Qty</th>
+          <th class="text-right py-2 px-3">Closing Stock Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="border-t hover:bg-slate-50">
+          <td class="py-2 px-3">{{ row.item_sku }}</td>
+          <td class="py-2 px-3 text-right">{{ row.qty_in|intcomma }}</td>
+          <td class="py-2 px-3 text-right">{{ row.qty_out|intcomma }}</td>
+          <td class="py-2 px-3 text-right font-medium">{{ row.closing_qty|intcomma }}</td>
+          <td class="py-2 px-3 text-right">{{ row.closing_stock_value|floatformat:2|intcomma }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="py-4 px-3 text-slate-500">No posted entries for this sub group in the selected period.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <p class="mt-4">
+    <a href="{% url 'inventory:stock_summary' %}{% if selected_godown_id %}?godown={{ selected_godown_id }}{% endif %}" class="text-slate-600 hover:underline">← Back to Stock Summary</a>
+  </p>
+</div>
+{% endblock %}

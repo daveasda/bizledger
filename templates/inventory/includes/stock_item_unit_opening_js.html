@@ -1,0 +1,113 @@
+{# Unit select id=id_unit; opening: id_opening_qty, id_opening_rate, id_opening_per, id_opening_value; .js-unit-per for Standard rates "per" column #}
+<script>
+(function () {
+  const unitEl = document.getElementById("id_unit");
+  const qtyEl = document.getElementById("id_opening_qty");
+  const rateEl = document.getElementById("id_opening_rate");
+  const perEl = document.getElementById("id_opening_per");
+  const valEl = document.getElementById("id_opening_value");
+  if (!unitEl || !qtyEl || !rateEl || !perEl || !valEl) return;
+
+  function selectedUnitLabel() {
+    const opt = unitEl.options[unitEl.selectedIndex];
+    if (!opt || !unitEl.value) return "";
+    return (opt.text || "").trim();
+  }
+
+  function updateUnitDisplays() {
+    const label = selectedUnitLabel();
+    perEl.value = label;
+    document.querySelectorAll(".js-unit-per").forEach(function (el) {
+      el.textContent = label || "—";
+    });
+  }
+
+  function parseNum(el) {
+    if (!el || el.value === "" || el.value === null) return null;
+    const n = parseFloat(String(el.value).replace(/,/g, ""));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  let openingLock = false;
+  function syncOpening(changed) {
+    if (openingLock) return;
+    openingLock = true;
+    try {
+      const q = parseNum(qtyEl);
+      const r = parseNum(rateEl);
+      const v = parseNum(valEl);
+      // Always derive the missing third value from any two fields.
+      if (q !== null && r !== null && (changed === qtyEl || changed === rateEl || v === null)) {
+        valEl.value = (q * r).toFixed(2);
+        return;
+      }
+      if (q !== null && v !== null && q !== 0 && (changed === qtyEl || changed === valEl || r === null)) {
+        rateEl.value = (v / q).toFixed(2);
+        return;
+      }
+      if (r !== null && v !== null && r !== 0 && (changed === rateEl || changed === valEl || q === null)) {
+        qtyEl.value = (v / r).toFixed(3);
+      }
+    } finally {
+      openingLock = false;
+    }
+  }
+
+  unitEl.addEventListener("change", updateUnitDisplays);
+  [qtyEl, rateEl, valEl].forEach(function (el) {
+    el.addEventListener("input", function () {
+      syncOpening(el);
+    });
+    el.addEventListener("change", function () {
+      syncOpening(el);
+    });
+  });
+
+  updateUnitDisplays();
+})();
+</script>
+<script>
+(function () {
+  const mainEl = document.getElementById("id_main_group");
+  const subEl = document.getElementById("id_sub_group");
+  if (!mainEl || !subEl) return;
+
+  let subgroupMap = {};
+  try {
+    subgroupMap = JSON.parse(subEl.getAttribute("data-subgroups") || "{}");
+  } catch (e) {
+    subgroupMap = {};
+  }
+
+  function rebuildSubgroupOptions() {
+    const mainId = mainEl.value || "";
+    const current = subEl.value || "";
+    const options = subgroupMap[mainId] || [];
+
+    subEl.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select Sub Group";
+    subEl.appendChild(placeholder);
+
+    let foundCurrent = false;
+    options.forEach(function (opt) {
+      const el = document.createElement("option");
+      el.value = String(opt.id);
+      el.textContent = opt.name;
+      if (String(opt.id) === current) {
+        el.selected = true;
+        foundCurrent = true;
+      }
+      subEl.appendChild(el);
+    });
+
+    if (!foundCurrent) {
+      subEl.value = "";
+    }
+  }
+
+  mainEl.addEventListener("change", rebuildSubgroupOptions);
+  rebuildSubgroupOptions();
+})();
+</script>

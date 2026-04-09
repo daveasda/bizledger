@@ -1,0 +1,53 @@
+{% extends "inventory/base_inventory.html" %}
+{% block inventory_content %}
+<div class="grid md:grid-cols-3 gap-4">
+  <div class="md:col-span-2 bg-white border rounded p-4">
+    <div class="bg-slate-600 text-white px-3 py-2 mb-2 font-semibold">List of Stock Sub Groups</div>
+    <div class="bg-white border rounded p-2 mb-2">
+      <form method="get" action="{% url 'inventory:stock_sub_groups_display' %}" class="flex items-center gap-2">
+        <label for="q" class="text-sm text-gray-600 whitespace-nowrap">Search subgroup:</label>
+        <input id="q" name="q" type="text" value="{{ search_query }}" placeholder="Subgroup name or alias"
+               class="flex-1 px-3 py-1.5 border rounded text-sm" />
+        <button type="submit" class="px-3 py-1.5 bg-slate-700 text-white rounded text-sm hover:bg-slate-800">Search</button>
+        {% if search_query %}
+        <a href="{% url 'inventory:stock_sub_groups_display' %}" class="px-3 py-1.5 border rounded text-sm text-gray-700 hover:bg-gray-50">Clear</a>
+        {% endif %}
+      </form>
+    </div>
+    <div class="bg-white border rounded max-h-96 overflow-y-auto divide-y">
+      {% for row in parent_rows %}
+      <div class="px-2 py-1">
+        <details {% if forloop.first %}open{% endif %} class="group">
+          <summary class="cursor-pointer px-2 py-1 rounded bg-slate-200 hover:bg-slate-300 flex items-center justify-between">
+            <span>{{ row.parent.name }}{% if row.parent.alias %} ({{ row.parent.alias }}){% endif %}</span>
+            <span class="text-xs text-gray-600 group-open:hidden">▼</span>
+            <span class="text-xs text-gray-600 hidden group-open:inline">▲</span>
+          </summary>
+          <div class="mt-1 ml-4 border-l pl-3 space-y-0.5">
+            {% for group in row.children %}
+            <div class="px-2 py-1 rounded hover:bg-slate-100 cursor-pointer"
+                 onclick="window.location='{% url 'inventory:stock_group_display' group.pk %}'"
+                 role="link" tabindex="0"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location='{% url 'inventory:stock_group_display' group.pk %}';}">
+              <span>{{ group.name }}{% if group.alias %} ({{ group.alias }}){% endif %}</span>
+            </div>
+            {% empty %}
+            <div class="px-2 py-1 text-gray-500 text-sm">No sub groups under this main group.</div>
+            {% endfor %}
+          </div>
+        </details>
+      </div>
+      {% empty %}
+      <div class="px-2 py-1 text-gray-600">No sub groups found. Create one under a main group.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="bg-gray-100 border rounded p-4">
+    <div class="font-semibold mb-3">Stock Sub Groups</div>
+    <div class="space-y-1">
+      <a href="{% url 'inventory:stock_group_create' %}?type=sub" class="block px-3 py-2 bg-white hover:bg-gray-50 border rounded">Create</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

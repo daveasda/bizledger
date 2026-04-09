@@ -1,14 +1,19 @@
 from decimal import Decimal, InvalidOperation
+from collections import defaultdict
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
+
+from config.financial_year import financial_year_start
 from django.views.decorators.http import require_http_methods
 from django.db import IntegrityError
 from django.db.models import Sum, Q
 from django.core.exceptions import ValidationError
+from django.db.models.deletion import ProtectedError
 
 from .forms import (
     StockGroupForm, StockItemForm, UnitOfMeasureForm, StandardRateForm, get_standard_rate_formset,
@@ -24,6 +29,125 @@ def _get_business_or_redirect(request):
         return None, HttpResponseRedirect(reverse("org:select_business"))
     from org.models import Business
     return get_object_or_404(Business, id=bid), None
+
+
+def _standard_rate_formsets(request, item):
+    CostFormSet = get_standard_rate_formset("COST")
+    SellingFormSet = get_standard_rate_formset("SELLING")
+    cost_queryset = StandardRate.objects.filter(item=item, rate_type="COST").order_by("-applicable_from")
+    selling_queryset = StandardRate.objects.filter(item=item, rate_type="SELLING").order_by("-applicable_from")
+    return (
+        CostFormSet(request.POST or None, queryset=cost_queryset, prefix="cost"),
+        SellingFormSet(request.POST or None, queryset=selling_queryset, prefix="selling"),
+    )
+
+
+def _persist_standard_rates(item, cost_formset, selling_formset):
+    for form in cost_formset:
+        if form.cleaned_data.get("DELETE") and form.instance.pk:
+            form.instance.delete()
+        elif (
+            form.cleaned_data
+            and not form.cleaned_data.get("DELETE")
+            and form.cleaned_data.get("applicable_from")
+            and form.cleaned_data.get("rate") is not None
+        ):
+            obj = form.save(commit=False)
+            obj.item = item
+            obj.rate_type = "COST"
+            obj.save()
+    for form in selling_formset:
+        if form.cleaned_data.get("DELETE") and form.instance.pk:
+            form.instance.delete()
+        elif (
+            form.cleaned_data
+            and not form.cleaned_data.get("DELETE")
+            and form.cleaned_data.get("applicable_from")
+            and form.cleaned_data.get("rate") is not None
+        ):
+            obj = form.save(commit=False)
+            obj.item = item
+            obj.rate_type = "SELLING"
+            obj.save()
+
+
+def _default_opening_godown(business):
+    """Return a predictable godown for opening stock seeds, creating one if needed."""
+    godown = Godown.objects.filter(business=business).order_by("id").first()
+    if godown:
+        return godown
+    godown, _ = Godown.objects.get_or_create(business=business, name="Main Location")
+    return godown
+
+
+def _sync_opening_stock_seed(item, business):
+    """
+    Idempotently mirror Item opening balance into StockLedgerEntry (voucher_type=OPENING).
+    - qty_in = opening_qty, qty_out = 0
+    - posting_date = current FY start
+    - if opening qty is empty/zero, remove seed rows
+    """
+    qty = item.opening_qty or Decimal("0")
+    seed_qs = StockLedgerEntry.objects.filter(
+        business=business,
+        item=item,
+        voucher_type="OPENING",
+        voucher_id__isnull=True,
+        is_posted=True,
+    )
+    if qty <= 0:
+        seed_qs.delete()
+        return
+
+    godown = _default_opening_godown(business)
+    posting_date = financial_year_start(timezone.localdate())
+    rate = item.opening_rate or Decimal("0")
+    amount = item.opening_value
+    if amount is None:
+        amount = (qty * rate).quantize(Decimal("0.01"))
+    narration = "Opening balance seed (auto)"
+
+    seed_row = (
+        seed_qs.filter(godown=godown)
+        .order_by("id")
+        .first()
+    )
+    if seed_row:
+        seed_row.posting_date = posting_date
+        seed_row.qty_in = qty
+        seed_row.qty_out = Decimal("0")
+        seed_row.rate = rate
+        seed_row.amount = amount
+        seed_row.narration = narration
+        seed_row.save(
+            update_fields=[
+                "posting_date",
+                "qty_in",
+                "qty_out",
+                "rate",
+                "amount",
+                "narration",
+                "updated_at",
+            ]
+        )
+    else:
+        StockLedgerEntry.objects.create(
+            business=business,
+            posting_date=posting_date,
+            item=item,
+            godown=godown,
+            qty_in=qty,
+            qty_out=Decimal("0"),
+            rate=rate,
+            amount=amount,
+            voucher_type="OPENING",
+            voucher_id=None,
+            is_posted=True,
+            narration=narration,
+        )
+
+    # Keep exactly one seed for this item/business across godowns.
+    seed_qs.exclude(pk=(seed_row.pk if seed_row else None)).delete()
 
 
 @login_required
@@ -53,15 +177,6 @@ def gateway(request):
     return render(request, "inventory/gateway.html", {"business": business})
 
 
-@login_required
-def stock_groups_gateway(request):
-    """Stock Groups sub-gateway: Single (Create, Display, Alter), Multiple (Create, Display, Alter)."""
-    business, redirect_response = _get_business_or_redirect(request)
-    if redirect_response:
-        return redirect_response
-    return render(request, "inventory/stock_groups_gateway.html", {"business": business})
-
-
 @require_http_methods(["GET", "POST"])
 @login_required
 def stock_group_create(request):
@@ -69,7 +184,10 @@ def stock_group_create(request):
     business, redirect_response = _get_business_or_redirect(request)
     if redirect_response:
         return redirect_response
-    form = StockGroupForm(request.POST or None, business=business)
+    group_type = (request.POST.get("group_type") or request.GET.get("type") or "any").strip().lower()
+    if group_type not in {"main", "sub"}:
+        group_type = "any"
+    form = StockGroupForm(request.POST or None, business=business, group_type=group_type)
     if not request.POST:
         form.fields["parent"].initial = None  # Primary
     if request.method == "POST" and form.is_valid():
@@ -88,10 +206,21 @@ def stock_group_create(request):
             messages.error(request, str(e))
     elif request.method == "POST":
         messages.error(request, "Could not save stock group. Please fix the errors below.")
+    if group_type == "main":
+        title = "Stock Main Group Creation"
+        under_hint = 'Only "Primary" is allowed here.'
+    elif group_type == "sub":
+        title = "Stock Sub Group Creation"
+        under_hint = "Choose a main group as parent."
+    else:
+        title = "Stock Group Creation"
+        under_hint = 'Select "Primary" for a top-level group.'
     return render(request, "inventory/stock_group_form.html", {
         "business": business,
         "form": form,
-        "title": "Stock Group Creation",
+        "title": title,
+        "group_type": group_type,
+        "under_hint": under_hint,
     })
 
 
@@ -110,6 +239,62 @@ def stock_groups_display(request):
     return render(request, "inventory/stock_groups_display.html", {
         "business": business,
         "groups": groups,
+    })
+
+
+@login_required
+def stock_main_groups_display(request):
+    """Display list of top-level stock groups with search."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+    search_query = (request.GET.get("q") or "").strip()
+    groups = StockGroup.objects.filter(business=business, parent__isnull=True)
+    if search_query:
+        groups = groups.filter(Q(name__icontains=search_query) | Q(alias__icontains=search_query))
+    groups = groups.order_by("name")
+    return render(request, "inventory/stock_main_groups_display.html", {
+        "business": business,
+        "groups": groups,
+        "search_query": search_query,
+    })
+
+
+@login_required
+def stock_sub_groups_display(request):
+    """Display sub-groups grouped under main groups (collapsible tree) with search."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+    search_query = (request.GET.get("q") or "").strip()
+    parents = StockGroup.objects.filter(business=business, parent__isnull=True).prefetch_related("children").order_by("name")
+    parent_rows = []
+    for parent in parents:
+        children_qs = parent.children.all().order_by("name")
+        if search_query:
+            children_qs = children_qs.filter(Q(name__icontains=search_query) | Q(alias__icontains=search_query))
+        children = list(children_qs)
+        if search_query and not children:
+            continue
+        parent_rows.append({"parent": parent, "children": children})
+    return render(request, "inventory/stock_sub_groups_display.html", {
+        "business": business,
+        "parent_rows": parent_rows,
+        "search_query": search_query,
+    })
+
+
+@require_http_methods(["GET"])
+@login_required
+def stock_group_display(request, pk: int):
+    """Read-only stock group detail window."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+    group = get_object_or_404(StockGroup, pk=pk, business=business)
+    return render(request, "inventory/stock_group_display.html", {
+        "business": business,
+        "group": group,
     })
 
 
@@ -145,16 +330,26 @@ def stock_group_alter(request, pk: int):
     })
 
 
-# --- Stock Items (same pattern as Stock Groups) ---
-
-
+@require_http_methods(["POST"])
 @login_required
-def stock_items_gateway(request):
-    """Stock Items sub-gateway: Create, Display, Alter."""
+def stock_group_delete(request, pk: int):
+    """Delete a stock group when not referenced by protected relations."""
     business, redirect_response = _get_business_or_redirect(request)
     if redirect_response:
         return redirect_response
-    return render(request, "inventory/stock_items_gateway.html", {"business": business})
+    group = get_object_or_404(StockGroup, pk=pk, business=business)
+    try:
+        group.delete()
+        messages.success(request, "Stock group deleted.")
+    except ProtectedError:
+        messages.error(
+            request,
+            "Cannot delete this stock group because it is used by items or subgroups.",
+        )
+    return redirect("inventory:stock_groups_display")
+
+
+# --- Stock Items (same pattern as Stock Groups) ---
 
 
 @require_http_methods(["GET", "POST"])
@@ -165,25 +360,44 @@ def stock_item_create(request):
     if redirect_response:
         return redirect_response
     form = StockItemForm(request.POST or None, business=business)
-    if request.method == "POST" and form.is_valid():
-        try:
-            obj = form.save(commit=False)
-            obj.business = business
-            obj.save()
-            messages.success(request, "Stock item created.")
-            return redirect("inventory:standard_rates", pk=obj.pk)
-        except IntegrityError:
-            messages.error(
-                request,
-                "A stock item with this SKU already exists for this business.",
-            )
-        except ValidationError as e:
-            messages.error(request, str(e))
-    elif request.method == "POST":
-        messages.error(request, "Could not save stock item. Please fix the errors below.")
+    CostFormSet = get_standard_rate_formset("COST")
+    SellingFormSet = get_standard_rate_formset("SELLING")
+    cost_formset = CostFormSet(request.POST or None, queryset=StandardRate.objects.none(), prefix="cost")
+    selling_formset = SellingFormSet(request.POST or None, queryset=StandardRate.objects.none(), prefix="selling")
+
+    if request.method == "POST":
+        if form.is_valid() and cost_formset.is_valid() and selling_formset.is_valid():
+            try:
+                with transaction.atomic():
+                    obj = form.save(commit=False)
+                    obj.business = business
+                    obj.save()
+                    _sync_opening_stock_seed(obj, business)
+                    _persist_standard_rates(obj, cost_formset, selling_formset)
+                messages.success(request, "Stock item created.")
+                return redirect("inventory:stock_item_display", pk=obj.pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "A stock item with this SKU already exists for this business.",
+                )
+            except ValidationError as e:
+                messages.error(request, str(e))
+        else:
+            messages.error(request, "Could not save stock item. Please fix the errors below.")
+
+    unit_symbol = "—"
+    unit_id = request.POST.get("unit")
+    if unit_id:
+        unit = UnitOfMeasure.objects.filter(business=business, pk=unit_id).first()
+        if unit:
+            unit_symbol = str(unit)
     return render(request, "inventory/stock_item_form.html", {
         "business": business,
         "form": form,
+        "cost_formset": cost_formset,
+        "selling_formset": selling_formset,
+        "unit_symbol": unit_symbol,
         "title": "Stock Item Creation",
     })
 
@@ -228,107 +442,109 @@ def stock_items_display(request):
     })
 
 
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET"])
 @login_required
-def stock_item_alter(request, pk: int):
-    """Alter an existing stock item."""
-    business, redirect_response = _get_business_or_redirect(request)
-    if redirect_response:
-        return redirect_response
-    item = get_object_or_404(Item, pk=pk, business=business)
-    form = StockItemForm(request.POST or None, instance=item, business=business)
-    if request.method == "POST" and form.is_valid():
-        try:
-            obj = form.save(commit=False)
-            obj.business = business
-            obj.save()
-            messages.success(request, "Stock item updated.")
-            return redirect("inventory:standard_rates", pk=obj.pk)
-        except IntegrityError:
-            messages.error(
-                request,
-                "A stock item with this SKU already exists for this business.",
-            )
-        except ValidationError as e:
-            messages.error(request, str(e))
-    elif request.method == "POST":
-        messages.error(request, "Could not save stock item. Please fix the errors below.")
-    return render(request, "inventory/stock_item_form.html", {
-        "business": business,
-        "form": form,
-        "title": "Stock Item Alteration",
-    })
-
-
-@require_http_methods(["GET", "POST"])
-@login_required
-def standard_rates(request, pk: int):
-    """Standard Rates window for a stock item: Standard Cost and Standard Selling Price tables."""
+def stock_item_display(request, pk: int):
+    """Read-only stock item detail: master, opening balance, standard rates."""
     business, redirect_response = _get_business_or_redirect(request)
     if redirect_response:
         return redirect_response
     item = get_object_or_404(Item, pk=pk, business=business)
     unit_symbol = str(item.unit) if item.unit else "—"
-
-    CostFormSet = get_standard_rate_formset("COST")
-    SellingFormSet = get_standard_rate_formset("SELLING")
-
-    cost_queryset = StandardRate.objects.filter(item=item, rate_type="COST").order_by("-applicable_from")
-    selling_queryset = StandardRate.objects.filter(item=item, rate_type="SELLING").order_by("-applicable_from")
-
-    cost_formset = CostFormSet(
-        request.POST or None,
-        queryset=cost_queryset,
-        prefix="cost",
+    cost_latest = (
+        StandardRate.objects.filter(item=item, rate_type="COST").order_by("-applicable_from").first()
     )
-    selling_formset = SellingFormSet(
-        request.POST or None,
-        queryset=selling_queryset,
-        prefix="selling",
+    selling_latest = (
+        StandardRate.objects.filter(item=item, rate_type="SELLING").order_by("-applicable_from").first()
     )
+    return render(request, "inventory/stock_item_display.html", {
+        "business": business,
+        "item": item,
+        "unit_symbol": unit_symbol,
+        "cost_latest": cost_latest,
+        "selling_latest": selling_latest,
+    })
 
+
+@require_http_methods(["GET", "POST"])
+@login_required
+def stock_item_alter(request, pk: int):
+    """Alter stock item: master fields, opening balance, and standard rates."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+    item = get_object_or_404(Item, pk=pk, business=business)
+    cost_formset, selling_formset = _standard_rate_formsets(request, item)
+    form = StockItemForm(request.POST or None, instance=item, business=business)
     if request.method == "POST":
-        if cost_formset.is_valid() and selling_formset.is_valid():
-            for form in cost_formset:
-                if form.cleaned_data.get("DELETE") and form.instance.pk:
-                    form.instance.delete()
-                elif form.cleaned_data and not form.cleaned_data.get("DELETE") and form.cleaned_data.get("applicable_from") and form.cleaned_data.get("rate") is not None:
+        if form.is_valid() and cost_formset.is_valid() and selling_formset.is_valid():
+            try:
+                with transaction.atomic():
                     obj = form.save(commit=False)
-                    obj.item = item
-                    obj.rate_type = "COST"
+                    obj.business = business
                     obj.save()
-            for form in selling_formset:
-                if form.cleaned_data.get("DELETE") and form.instance.pk:
-                    form.instance.delete()
-                elif form.cleaned_data and not form.cleaned_data.get("DELETE") and form.cleaned_data.get("applicable_from") and form.cleaned_data.get("rate") is not None:
-                    obj = form.save(commit=False)
-                    obj.item = item
-                    obj.rate_type = "SELLING"
-                    obj.save()
-            messages.success(request, "Standard rates updated.")
-            return redirect("inventory:standard_rates", pk=item.pk)
+                    _sync_opening_stock_seed(obj, business)
+                    _persist_standard_rates(obj, cost_formset, selling_formset)
+                messages.success(request, "Stock item saved.")
+                return redirect("inventory:stock_item_display", pk=obj.pk)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "A stock item with this SKU already exists for this business.",
+                )
+            except ValidationError as e:
+                messages.error(request, str(e))
         else:
             messages.error(request, "Please fix the errors below.")
-
-    return render(request, "inventory/standard_rates.html", {
+    unit_symbol = str(item.unit) if item.unit else "—"
+    return render(request, "inventory/stock_item_alter.html", {
         "business": business,
+        "form": form,
         "item": item,
         "unit_symbol": unit_symbol,
         "cost_formset": cost_formset,
         "selling_formset": selling_formset,
+        "title": "Stock Item Alteration",
     })
 
 
-# --- Units of Measure (same pattern as Stock Groups) ---
-
-
+@require_http_methods(["POST"])
 @login_required
-def units_gateway(request):
-    """Units of Measure sub-gateway: Create, Display, Alter."""
+def stock_item_delete(request, pk: int):
+    """Delete a stock item when not referenced by protected relations."""
     business, redirect_response = _get_business_or_redirect(request)
     if redirect_response:
         return redirect_response
-    return render(request, "inventory/units_gateway.html", {"business": business})
+    item = get_object_or_404(Item, pk=pk, business=business)
+    try:
+        StockLedgerEntry.objects.filter(
+            business=business,
+            item=item,
+            voucher_type="OPENING",
+            voucher_id__isnull=True,
+            is_posted=True,
+        ).delete()
+        item.delete()
+        messages.success(request, "Stock item deleted.")
+    except ProtectedError:
+        messages.error(
+            request,
+            "Cannot delete this stock item because it is used in posted entries or other records.",
+        )
+    return redirect("inventory:stock_items_display")
+
+
+@login_required
+def standard_rates(request, pk: int):
+    """Legacy URL: standard rates are edited on Stock Item Alteration; redirect to display."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+    get_object_or_404(Item, pk=pk, business=business)
+    return redirect("inventory:stock_item_display", pk=pk)
+
+
+# --- Units of Measure (same pattern as Stock Groups) ---
 
 
 @require_http_methods(["GET", "POST"])
@@ -368,10 +584,29 @@ def units_display(request):
     business, redirect_response = _get_business_or_redirect(request)
     if redirect_response:
         return redirect_response
-    units = UnitOfMeasure.objects.filter(business=business).order_by("symbol")
+    search_query = (request.GET.get("q") or "").strip()
+    units = UnitOfMeasure.objects.filter(business=business)
+    if search_query:
+        units = units.filter(Q(symbol__icontains=search_query) | Q(formal_name__icontains=search_query))
+    units = units.order_by("symbol")
     return render(request, "inventory/units_display.html", {
         "business": business,
         "units": units,
+        "search_query": search_query,
+    })
+
+
+@require_http_methods(["GET"])
+@login_required
+def unit_display(request, pk: int):
+    """Read-only unit detail window."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+    unit = get_object_or_404(UnitOfMeasure, pk=pk, business=business)
+    return render(request, "inventory/unit_display.html", {
+        "business": business,
+        "unit": unit,
     })
 
 
@@ -405,6 +640,25 @@ def unit_alter(request, pk: int):
         "form": form,
         "title": "Unit Alteration",
     })
+
+
+@require_http_methods(["POST"])
+@login_required
+def unit_delete(request, pk: int):
+    """Delete a unit of measure."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+    unit = get_object_or_404(UnitOfMeasure, pk=pk, business=business)
+    try:
+        unit.delete()
+        messages.success(request, "Unit deleted.")
+    except ProtectedError:
+        messages.error(
+            request,
+            "Cannot delete this unit because it is referenced by other records.",
+        )
+    return redirect("inventory:units_display")
 
 
 # --- Tally-style: Items (alias URLs), Warehouses, Stock Summary, Vouchers ---
@@ -444,6 +698,7 @@ def item_create(request):
             obj = form.save(commit=False)
             obj.business = business
             obj.save()
+            _sync_opening_stock_seed(obj, business)
             messages.success(request, "Item created.")
             return redirect("inventory:items_list")
         except IntegrityError:
@@ -473,6 +728,7 @@ def item_edit(request, pk: int):
             obj = form.save(commit=False)
             obj.business = business
             obj.save()
+            _sync_opening_stock_seed(obj, business)
             messages.success(request, "Item updated.")
             return redirect("inventory:items_list")
         except IntegrityError:
@@ -561,40 +817,82 @@ def stock_summary(request):
     if redirect_response:
         return redirect_response
     godown_id = request.GET.get("godown")
-    date_from = request.GET.get("date_from")
-    date_to = request.GET.get("date_to")
+    today = timezone.localdate()
+    period_start = financial_year_start(today)
+    period_end = today
 
     qs = StockLedgerEntry.objects.filter(business=business, is_posted=True)
     if godown_id:
         qs = qs.filter(godown_id=godown_id)
-    if date_from:
-        qs = qs.filter(posting_date__gte=date_from)
-    if date_to:
-        qs = qs.filter(posting_date__lte=date_to)
+    qs = qs.filter(posting_date__gte=period_start, posting_date__lte=period_end)
 
     rows = (
-        qs.values("item_id", "item__sku")
+        qs.values("item_id")
         .annotate(total_in=Sum("qty_in"), total_out=Sum("qty_out"))
-        .order_by("item__sku")
+        .order_by("item_id")
     )
     purchase_rates = _item_standard_cost_rates(business)  # item_id -> rate (str), standard COST = purchase rate
-    summary_rows = []
+    item_ids = [r["item_id"] for r in rows]
+    items_by_id = {
+        i.id: i
+        for i in Item.objects.filter(business=business, id__in=item_ids).select_related("stock_group__parent")
+    }
+    main_groups_map = {}
+
+    def _get_or_create_main_group(key, name):
+        if key not in main_groups_map:
+            main_groups_map[key] = {
+                "main_group_name": name,
+                "closing_qty": Decimal("0"),
+                "closing_stock_value": Decimal("0.00"),
+                "sub_groups_map": {},
+            }
+        return main_groups_map[key]
+
+    def _add_subgroup(main_group, subgroup_key, subgroup_id, name, qty, value):
+        if subgroup_key not in main_group["sub_groups_map"]:
+            main_group["sub_groups_map"][subgroup_key] = {
+                "id": subgroup_id,
+                "name": name,
+                "closing_qty": Decimal("0"),
+                "closing_stock_value": Decimal("0.00"),
+            }
+        main_group["sub_groups_map"][subgroup_key]["closing_qty"] += qty
+        main_group["sub_groups_map"][subgroup_key]["closing_stock_value"] += value
+
     for r in rows:
         total_in = r["total_in"] or Decimal("0")
         total_out = r["total_out"] or Decimal("0")
         balance = total_in - total_out
-        rate_str = purchase_rates.get(str(r["item_id"]), "0")
-        purchase_rate = Decimal(rate_str) if rate_str else Decimal("0")
+        item = items_by_id.get(r["item_id"])
+        rate_str = purchase_rates.get(str(r["item_id"]))
+        if rate_str is not None:
+            purchase_rate = Decimal(rate_str)
+        else:
+            # Fallback: if no standard COST rate, use opening balance rate from item master.
+            purchase_rate = (item.opening_rate if item and item.opening_rate is not None else Decimal("0"))
         closing_value = (balance * purchase_rate).quantize(Decimal("0.01"))
-        summary_rows.append({
-            "item_id": r["item_id"],
-            "item_sku": r["item__sku"],
-            "qty_in": total_in,
-            "qty_out": total_out,
-            "balance": balance,
-            "rate": purchase_rate,
-            "closing_stock_value": closing_value,
-        })
+        stock_group = item.stock_group if item else None
+
+        if stock_group is None:
+            main_group = _get_or_create_main_group(("primary", 0), "Primary (No Group)")
+            _add_subgroup(main_group, ("direct", 0), None, "(Direct items)", balance, closing_value)
+        elif stock_group.parent_id is None:
+            main_group = _get_or_create_main_group(("main", stock_group.id), stock_group.name)
+            _add_subgroup(main_group, ("direct", stock_group.id), None, "(Direct items)", balance, closing_value)
+        else:
+            main_group = _get_or_create_main_group(("main", stock_group.parent_id), stock_group.parent.name)
+            _add_subgroup(main_group, ("sub", stock_group.id), stock_group.id, stock_group.name, balance, closing_value)
+
+        main_group["closing_qty"] += balance
+        main_group["closing_stock_value"] += closing_value
+
+    summary_rows = []
+    for row in sorted(main_groups_map.values(), key=lambda x: x["main_group_name"].lower()):
+        sub_groups = sorted(row["sub_groups_map"].values(), key=lambda x: x["name"].lower())
+        row["sub_groups"] = sub_groups
+        del row["sub_groups_map"]
+        summary_rows.append(row)
 
     godowns = Godown.objects.filter(business=business).order_by("name")
     return render(request, "inventory/stock_summary.html", {
@@ -602,8 +900,393 @@ def stock_summary(request):
         "summary_rows": summary_rows,
         "godowns": godowns,
         "selected_godown_id": godown_id,
-        "date_from": date_from or "",
-        "date_to": date_to or "",
+        "period_start": period_start,
+        "period_end": period_end,
+    })
+
+
+@require_http_methods(["GET"])
+@login_required
+def stock_summary_sub_group(request, pk: int):
+    """Stock Summary detail for a single sub group (item-wise), no rate column."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+
+    subgroup = get_object_or_404(
+        StockGroup.objects.select_related("parent"),
+        pk=pk,
+        business=business,
+        parent__isnull=False,
+    )
+    godown_id = request.GET.get("godown")
+    today = timezone.localdate()
+    period_start = financial_year_start(today)
+    period_end = today
+
+    qs = StockLedgerEntry.objects.filter(
+        business=business,
+        is_posted=True,
+        posting_date__gte=period_start,
+        posting_date__lte=period_end,
+        item__stock_group=subgroup,
+    )
+    if godown_id:
+        qs = qs.filter(godown_id=godown_id)
+
+    rows = (
+        qs.values("item_id", "item__sku")
+        .annotate(total_in=Sum("qty_in"), total_out=Sum("qty_out"))
+        .order_by("item__sku")
+    )
+    purchase_rates = _item_standard_cost_rates(business)
+    items_by_id = {
+        i.id: i
+        for i in Item.objects.filter(business=business, stock_group=subgroup).only("id", "opening_rate")
+    }
+
+    detail_rows = []
+    for r in rows:
+        total_in = r["total_in"] or Decimal("0")
+        total_out = r["total_out"] or Decimal("0")
+        balance = total_in - total_out
+        item = items_by_id.get(r["item_id"])
+        rate_str = purchase_rates.get(str(r["item_id"]))
+        if rate_str is not None:
+            purchase_rate = Decimal(rate_str)
+        else:
+            purchase_rate = (item.opening_rate if item and item.opening_rate is not None else Decimal("0"))
+        closing_value = (balance * purchase_rate).quantize(Decimal("0.01"))
+        detail_rows.append({
+            "item_sku": r["item__sku"],
+            "qty_in": total_in,
+            "qty_out": total_out,
+            "closing_qty": balance,
+            "closing_stock_value": closing_value,
+        })
+
+    return render(request, "inventory/stock_summary_sub_group.html", {
+        "business": business,
+        "subgroup": subgroup,
+        "rows": detail_rows,
+        "period_start": period_start,
+        "period_end": period_end,
+        "selected_godown_id": godown_id or "",
+    })
+
+
+def _stock_analysis_item_totals(business, period_start, period_end, godown_id=None, main_group=None, sub_group=None):
+    qs = StockLedgerEntry.objects.filter(
+        business=business,
+        is_posted=True,
+        posting_date__gte=period_start,
+        posting_date__lte=period_end,
+    ).select_related("item__stock_group__parent")
+    if godown_id:
+        qs = qs.filter(godown_id=godown_id)
+    if sub_group is not None:
+        qs = qs.filter(item__stock_group=sub_group)
+    elif main_group is not None:
+        qs = qs.filter(Q(item__stock_group=main_group) | Q(item__stock_group__parent=main_group))
+
+    by_item = {}
+    for e in qs:
+        key = e.item_id
+        if key not in by_item:
+            by_item[key] = {
+                "item_id": key,
+                "item_sku": e.item.sku,
+                "stock_group": e.item.stock_group,
+                "latest_date": None,
+                "inward_qty": Decimal("0"),
+                "inward_value": Decimal("0"),
+                "outward_qty": Decimal("0"),
+                "outward_value": Decimal("0"),
+            }
+        row = by_item[key]
+        if row["latest_date"] is None or e.posting_date > row["latest_date"]:
+            row["latest_date"] = e.posting_date
+        if e.qty_in and e.qty_in > 0:
+            row["inward_qty"] += e.qty_in
+            row["inward_value"] += (e.amount or Decimal("0"))
+        if e.qty_out and e.qty_out > 0:
+            row["outward_qty"] += e.qty_out
+            row["outward_value"] += (e.amount or Decimal("0"))
+
+    rows = list(by_item.values())
+    for row in rows:
+        row["inward_rate"] = (row["inward_value"] / row["inward_qty"]).quantize(Decimal("0.01")) if row["inward_qty"] else Decimal("0.00")
+        row["outward_rate"] = (row["outward_value"] / row["outward_qty"]).quantize(Decimal("0.01")) if row["outward_qty"] else Decimal("0.00")
+    return rows
+
+
+def _movement_label_maps(voucher_ids):
+    """
+    Build voucher-wise display labels from accounting lines.
+    - Purchase inward label: first credit line account (party/supplier)
+    - Sales outward label: first debit line account (party/buyer)
+    """
+    if not voucher_ids:
+        return {}, {}
+    from ledger.models import VoucherLine
+
+    purchase_labels = {}
+    sales_labels = {}
+    lines = VoucherLine.objects.filter(voucher_id__in=voucher_ids).select_related("account")
+    for line in lines:
+        if line.voucher_id not in purchase_labels and line.credit and line.credit > 0:
+            purchase_labels[line.voucher_id] = line.account.name
+        if line.voucher_id not in sales_labels and line.debit and line.debit > 0:
+            sales_labels[line.voucher_id] = line.account.name
+    return purchase_labels, sales_labels
+
+
+@login_required
+def stock_analysis(request):
+    """Movement analysis by main groups."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+    godown_id = request.GET.get("godown")
+    period_start = financial_year_start(timezone.localdate())
+    period_end = timezone.localdate()
+
+    item_rows = _stock_analysis_item_totals(business, period_start, period_end, godown_id=godown_id)
+    main_groups = {}
+    for r in item_rows:
+        sg = r["stock_group"]
+        if sg is None:
+            key = ("primary", 0)
+            name = "Primary (No Group)"
+            group_id = None
+        elif sg.parent_id is None:
+            key = ("main", sg.id)
+            name = sg.name
+            group_id = sg.id
+        else:
+            key = ("main", sg.parent_id)
+            name = sg.parent.name
+            group_id = sg.parent_id
+        if key not in main_groups:
+            main_groups[key] = {
+                "id": group_id,
+                "name": name,
+                "inward_qty": Decimal("0"),
+                "inward_value": Decimal("0"),
+                "outward_qty": Decimal("0"),
+                "outward_value": Decimal("0"),
+            }
+        g = main_groups[key]
+        g["inward_qty"] += r["inward_qty"]
+        g["inward_value"] += r["inward_value"]
+        g["outward_qty"] += r["outward_qty"]
+        g["outward_value"] += r["outward_value"]
+
+    rows = sorted(main_groups.values(), key=lambda x: x["name"].lower())
+    for row in rows:
+        row["inward_rate"] = (row["inward_value"] / row["inward_qty"]).quantize(Decimal("0.01")) if row["inward_qty"] else Decimal("0.00")
+        row["outward_rate"] = (row["outward_value"] / row["outward_qty"]).quantize(Decimal("0.01")) if row["outward_qty"] else Decimal("0.00")
+
+    totals = {
+        "inward_qty": sum((r["inward_qty"] for r in rows), Decimal("0")),
+        "inward_value": sum((r["inward_value"] for r in rows), Decimal("0")),
+        "outward_qty": sum((r["outward_qty"] for r in rows), Decimal("0")),
+        "outward_value": sum((r["outward_value"] for r in rows), Decimal("0")),
+    }
+    totals["inward_rate"] = (totals["inward_value"] / totals["inward_qty"]).quantize(Decimal("0.01")) if totals["inward_qty"] else Decimal("0.00")
+    totals["outward_rate"] = (totals["outward_value"] / totals["outward_qty"]).quantize(Decimal("0.01")) if totals["outward_qty"] else Decimal("0.00")
+
+    return render(request, "inventory/stock_analysis_main.html", {
+        "business": business,
+        "rows": rows,
+        "totals": totals,
+        "period_start": period_start,
+        "period_end": period_end,
+        "selected_godown_id": godown_id or "",
+    })
+
+
+@login_required
+def stock_analysis_sub_groups(request, pk: int):
+    """Movement analysis by sub groups within a main group."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+    main_group = get_object_or_404(StockGroup, pk=pk, business=business, parent__isnull=True)
+    godown_id = request.GET.get("godown")
+    period_start = financial_year_start(timezone.localdate())
+    period_end = timezone.localdate()
+
+    item_rows = _stock_analysis_item_totals(
+        business, period_start, period_end, godown_id=godown_id, main_group=main_group
+    )
+    subgroups = defaultdict(lambda: {
+        "id": None, "name": "(Direct items)",
+        "inward_qty": Decimal("0"), "inward_value": Decimal("0"),
+        "outward_qty": Decimal("0"), "outward_value": Decimal("0"),
+    })
+    for r in item_rows:
+        sg = r["stock_group"]
+        if sg and sg.parent_id == main_group.id:
+            key = sg.id
+            name = sg.name
+            sid = sg.id
+        else:
+            key = 0
+            name = "(Direct items)"
+            sid = None
+        row = subgroups[key]
+        row["id"] = sid
+        row["name"] = name
+        row["inward_qty"] += r["inward_qty"]
+        row["inward_value"] += r["inward_value"]
+        row["outward_qty"] += r["outward_qty"]
+        row["outward_value"] += r["outward_value"]
+
+    rows = sorted(subgroups.values(), key=lambda x: x["name"].lower())
+    for row in rows:
+        row["inward_rate"] = (row["inward_value"] / row["inward_qty"]).quantize(Decimal("0.01")) if row["inward_qty"] else Decimal("0.00")
+        row["outward_rate"] = (row["outward_value"] / row["outward_qty"]).quantize(Decimal("0.01")) if row["outward_qty"] else Decimal("0.00")
+
+    totals = {
+        "inward_qty": sum((r["inward_qty"] for r in rows), Decimal("0")),
+        "inward_value": sum((r["inward_value"] for r in rows), Decimal("0")),
+        "outward_qty": sum((r["outward_qty"] for r in rows), Decimal("0")),
+        "outward_value": sum((r["outward_value"] for r in rows), Decimal("0")),
+    }
+    totals["inward_rate"] = (totals["inward_value"] / totals["inward_qty"]).quantize(Decimal("0.01")) if totals["inward_qty"] else Decimal("0.00")
+    totals["outward_rate"] = (totals["outward_value"] / totals["outward_qty"]).quantize(Decimal("0.01")) if totals["outward_qty"] else Decimal("0.00")
+
+    return render(request, "inventory/stock_analysis_sub.html", {
+        "business": business,
+        "main_group": main_group,
+        "rows": rows,
+        "totals": totals,
+        "period_start": period_start,
+        "period_end": period_end,
+        "selected_godown_id": godown_id or "",
+    })
+
+
+@login_required
+def stock_analysis_items(request, pk: int):
+    """Movement analysis by items within a sub group."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+    subgroup = get_object_or_404(StockGroup.objects.select_related("parent"), pk=pk, business=business, parent__isnull=False)
+    godown_id = request.GET.get("godown")
+    period_start = financial_year_start(timezone.localdate())
+    period_end = timezone.localdate()
+    rows = _stock_analysis_item_totals(
+        business, period_start, period_end, godown_id=godown_id, sub_group=subgroup
+    )
+    rows = sorted(rows, key=lambda x: x["item_sku"].lower())
+    totals = {
+        "inward_qty": sum((r["inward_qty"] for r in rows), Decimal("0")),
+        "inward_value": sum((r["inward_value"] for r in rows), Decimal("0")),
+        "outward_qty": sum((r["outward_qty"] for r in rows), Decimal("0")),
+        "outward_value": sum((r["outward_value"] for r in rows), Decimal("0")),
+    }
+    totals["inward_rate"] = (totals["inward_value"] / totals["inward_qty"]).quantize(Decimal("0.01")) if totals["inward_qty"] else Decimal("0.00")
+    totals["outward_rate"] = (totals["outward_value"] / totals["outward_qty"]).quantize(Decimal("0.01")) if totals["outward_qty"] else Decimal("0.00")
+
+    return render(request, "inventory/stock_analysis_items.html", {
+        "business": business,
+        "subgroup": subgroup,
+        "rows": rows,
+        "totals": totals,
+        "period_start": period_start,
+        "period_end": period_end,
+        "selected_godown_id": godown_id or "",
+    })
+
+
+@login_required
+def stock_analysis_item_movement(request, pk: int):
+    """Item movement analysis (inward/outward sections) for one item."""
+    business, redirect_response = _get_business_or_redirect(request)
+    if redirect_response:
+        return redirect_response
+    item = get_object_or_404(Item.objects.select_related("stock_group__parent"), pk=pk, business=business)
+    godown_id = request.GET.get("godown")
+    period_start = financial_year_start(timezone.localdate())
+    period_end = timezone.localdate()
+
+    entries = StockLedgerEntry.objects.filter(
+        business=business,
+        item=item,
+        is_posted=True,
+        posting_date__gte=period_start,
+        posting_date__lte=period_end,
+    ).order_by("posting_date", "id")
+    if godown_id:
+        entries = entries.filter(godown_id=godown_id)
+
+    voucher_ids = [e.voucher_id for e in entries if e.voucher_id]
+    purchase_labels, sales_labels = _movement_label_maps(voucher_ids)
+
+    inward_map = defaultdict(lambda: {"name": "", "qty": Decimal("0"), "value": Decimal("0")})
+    outward_map = defaultdict(lambda: {"name": "", "qty": Decimal("0"), "value": Decimal("0")})
+
+    for e in entries:
+        if e.qty_in and e.qty_in > 0:
+            if e.voucher_type == "OPENING":
+                label = "Opening Balance"
+            elif e.voucher_type == "PURCHASE":
+                label = purchase_labels.get(e.voucher_id) or "Suppliers"
+            elif e.voucher_type == "STOCK_JOURNAL":
+                label = "Stock Journal Inward"
+            else:
+                label = e.voucher_type.title() if e.voucher_type else "Inward"
+            row = inward_map[label]
+            row["name"] = label
+            row["qty"] += e.qty_in
+            row["value"] += (e.amount or Decimal("0"))
+
+        if e.qty_out and e.qty_out > 0:
+            if e.voucher_type == "SALES":
+                label = sales_labels.get(e.voucher_id) or "Buyers"
+            elif e.voucher_type == "STOCK_JOURNAL":
+                label = "Stock Journal Outward"
+            else:
+                label = e.voucher_type.title() if e.voucher_type else "Outward"
+            row = outward_map[label]
+            row["name"] = label
+            row["qty"] += e.qty_out
+            row["value"] += (e.amount or Decimal("0"))
+
+    inward_rows = sorted(inward_map.values(), key=lambda x: x["name"].lower())
+    outward_rows = sorted(outward_map.values(), key=lambda x: x["name"].lower())
+    for r in inward_rows:
+        r["basic_rate"] = (r["value"] / r["qty"]).quantize(Decimal("0.01")) if r["qty"] else Decimal("0.00")
+        r["effective_rate"] = r["basic_rate"]
+    for r in outward_rows:
+        r["basic_rate"] = (r["value"] / r["qty"]).quantize(Decimal("0.01")) if r["qty"] else Decimal("0.00")
+        r["effective_rate"] = r["basic_rate"]
+
+    inward_qty_total = sum((r["qty"] for r in inward_rows), Decimal("0"))
+    inward_value_total = sum((r["value"] for r in inward_rows), Decimal("0"))
+    outward_qty_total = sum((r["qty"] for r in outward_rows), Decimal("0"))
+    outward_value_total = sum((r["value"] for r in outward_rows), Decimal("0"))
+    totals = {
+        "inward_qty": inward_qty_total,
+        "inward_value": inward_value_total,
+        "inward_effective_rate": (inward_value_total / inward_qty_total).quantize(Decimal("0.01")) if inward_qty_total else Decimal("0.00"),
+        "outward_qty": outward_qty_total,
+        "outward_value": outward_value_total,
+        "outward_effective_rate": (outward_value_total / outward_qty_total).quantize(Decimal("0.01")) if outward_qty_total else Decimal("0.00"),
+    }
+
+    return render(request, "inventory/stock_analysis_item_movement.html", {
+        "business": business,
+        "item": item,
+        "period_start": period_start,
+        "period_end": period_end,
+        "inward_rows": inward_rows,
+        "outward_rows": outward_rows,
+        "totals": totals,
+        "selected_godown_id": godown_id or "",
     })
 
 
